@@ -1,0 +1,154 @@
+# Cinema Outings AI: Multi-Agent Mobile Application
+
+A full-stack, AI-agent powered mobile application designed to manage cinema outings for end users. The frontend is built with **Flutter** using the dynamic **A2UI (Agent-to-UI)** declarative protocol, and the backend consists of a multi-agent system built with **Google ADK (Agent Development Kit)**, **Gemini**, and **FastAPI**.
+
+---
+
+## 🏛️ Architecture Overview
+
+The system is partitioned into two primary components:
+1. **Frontend (Flutter)**: A cross-platform mobile client featuring an A2UI dynamic renderer that converts declarative JSON specifications into native widgets (movie discovery cards, interactive seat map selector, digital ticket boarding passes, and calendar invitations).
+2. **Backend (Python + Google ADK)**: A multi-agent service hosting 4 specialized agents connected via **Session State / Memory Passing**:
+   - **Outing Coordinator Agent (Supervisor)**: Orchestrates conversational dialogue, detects user intent, and packages A2UI responses.
+   - **Search & Recommendation Agent**: Leverages **MCP (Model Context Protocol)** for live internet discovery of cinema screenings, filtering against watched movies and boosting taste matches using favorite movies passed via session memory.
+   - **Booking Agent**: Uses **custom transaction functions** to inspect auditorium seating grids, temporarily hold seats, execute payment transactions, and issue tickets with QR codes.
+   - **Housekeeping Agent**: Maintains user watched movie history and favorite movie preferences in shared session memory, and dispatches **calendar invites** (`.ics` format and Google Calendar deep links).
+
+```
+                      ┌─────────────────────────────────────────┐
+                      │         Flutter Mobile Client           │
+                      │  (A2UI Renderer + Chat Canvas + Theme)  │
+                      └────────────────────┬────────────────────┘
+                                           │
+                                    A2UI Protocol
+                                   (REST / JSON)
+                                           │
+                                           ▼
+                      ┌─────────────────────────────────────────┐
+                      │          FastAPI Backend Gateway        │
+                      │   (/api/v1/agent/chat, /a2ui/action)    │
+                      └────────────────────┬────────────────────┘
+                                           │
+             ┌─────────────────────────────┴─────────────────────────────┐
+             ▼                                                           ▼
+┌─────────────────────────┐                                 ┌─────────────────────────┐
+│ Outing Coordinator      │                                 │ Shared Session State    │
+│ Agent (Supervisor/Host) │ ◄──────── Memory Passing ─────► │ • favorite_movies       │
+└────────────┬────────────┘                                 │ • seen_movies           │
+             │                                              │ • active_booking        │
+             ├──────────────────────┬───────────────────────┤ • active_reservation    │
+             ▼                      ▼                       ▼ └─────────────────────────┘
+┌─────────────────────────┐┌─────────────────────────┐┌─────────────────────────┐
+│ Search & Reco Agent     ││ Booking Agent           ││ Housekeeping Agent      │
+│ • MCP Web Search Tools  ││ • Custom Transactions   ││ • Watched Movie History │
+│ • Taste Matching Memory ││ • Seat Hold & Payment   ││ • Favorites Memory      │
+│ • Duplicate Avoidance   ││ • QR Ticket Pass        ││ • Calendar Invites      │
+└────────────┬────────────┘└────────────┬────────────┘└────────────┬────────────┘
+             ▼                          ▼                          ▼
+┌─────────────────────────┐┌─────────────────────────┐┌─────────────────────────┐
+│ MCP Movie Search Server ││ Cinema Ticketing API    ││ iCalendar (.ics) Engine │
+│ (mcp<2 stdio server)    ││ (Custom Functions)      ││ & Google Calendar API   │
+└─────────────────────────┘└─────────────────────────┘└─────────────────────────┘
+```
+
+---
+
+## 🤖 The 4 Agents & Implementation
+
+| Agent | Technology | Role & Key Features |
+|---|---|---|
+| **1. Outing Coordinator** | Google ADK (`LlmAgent`) | Top-level host; routes user requests, synchronizes memory passing, and formats outgoing A2UI payloads. |
+| **2. Search & Reco** | Google ADK + MCP (`McpToolset`) | Queries live internet movie screenings via FastMCP; cross-references `session.state["favorite_movies"]` and avoids `session.state["seen_movies"]`. |
+| **3. Booking** | Google ADK + Custom Functions | Executes ticket transactions: `get_seat_availability`, `hold_seats_reservation`, `process_ticket_payment`, and `cancel_booking`. |
+| **4. Housekeeping** | Google ADK + Memory Manager | Tracks watched archive, manages user favorites list passed to Reco, and generates calendar invites (`.ics` / Google Calendar). |
+
+---
+
+## 📱 A2UI (Agent-to-UI) Protocol
+
+The backend agents communicate with the Flutter frontend using the declarative **A2UI Protocol**:
+- **`movie_card`**: Film backdrop, runtime, genre tags, taste-matching badges (*"Directed by Christopher Nolan, who directed your favorite: Interstellar"*), and showtime selection buttons.
+- **`seat_map_selector`**: 2D curved screen seating chart with selectable seats, row labels, VIP tiers, and real-time subtotal pricing.
+- **`ticket_pass`**: Digital boarding pass featuring cinema venue, hall, seat numbers, total price, and scannable QR token.
+- **`calendar_invite_card`**: Event invitation allowing one-click export to Google Calendar or downloading standard `.ics` files.
+- **`seen_history_list`**: Interactive list displaying user's cinema history and favorites.
+
+---
+
+## 📂 Project Structure
+
+```
+google-ai-l200-submission/
+├── backend/
+│   ├── app.py                      # FastAPI server with A2UI endpoints
+│   ├── config.py                   # Environment & Gemini configuration
+│   ├── requirements.txt            # Python dependencies
+│   ├── agents/
+│   │   ├── coordinator_agent.py   # Supervisor / Host Agent
+│   │   ├── search_reco_agent.py   # Search & Recommendation Agent (MCP)
+│   │   ├── booking_agent.py       # Booking Agent (Custom Transactions)
+│   │   └── housekeeping_agent.py  # Housekeeping Agent (History & Calendar)
+│   ├── mcp_servers/
+│   │   └── movie_search_server.py # FastMCP Movie Discovery Server
+│   ├── tools/
+│   │   ├── booking_transactions.py # Custom seat & ticketing functions
+│   │   └── calendar_tools.py      # .ics & calendar link generator
+│   ├── protocols/
+│   │   └── a2ui.py                # A2UI Protocol schemas & builders
+│   ├── state/
+│   │   └── memory_manager.py      # Session memory & state passing
+│   └── tests/
+│       ├── test_agents.py         # Multi-agent flow & memory tests
+│       ├── test_mcp.py            # MCP server tool tests
+│       └── test_a2ui.py           # A2UI protocol serialization tests
+├── frontend/
+│   ├── pubspec.yaml                # Flutter project configuration
+│   ├── lib/
+│   │   ├── main.dart               # App entry point & bottom navigation
+│   │   ├── theme/cinema_theme.dart # Dark cinema outing theme
+│   │   ├── models/a2ui_models.dart # Dart A2UI models
+│   │   ├── services/agent_client.dart # HTTP client for backend agents
+│   │   ├── widgets/
+│   │   │   ├── a2ui_renderer.dart  # Dynamic A2UI component engine
+│   │   │   ├── movie_card_widget.dart
+│   │   │   ├── seat_map_widget.dart
+│   │   │   ├── ticket_pass_widget.dart
+│   │   │   ├── calendar_invite_widget.dart
+│   │   │   └── seen_history_widget.dart
+│   │   └── screens/
+│   │       ├── outing_chat_screen.dart # AI conversational canvas
+│   │       └── seen_history_screen.dart # Watched archive & memory profile
+│   └── test/
+│       └── a2ui_renderer_test.dart # Flutter widget tests
+└── README.md
+```
+
+---
+
+## 🚀 Getting Started
+
+### 1. Backend Setup & Execution
+```bash
+# Sourcing environment (sets GEMINI_API_KEY from ~/gemini_key.txt)
+source /home/vchartier/companion-python/set_env.sh
+
+# Run all backend unit and integration tests
+PYTHONPATH=. /home/vchartier/companion-python/venv/bin/pytest backend/tests/ -v
+
+# Launch backend FastAPI server
+PYTHONPATH=. /home/vchartier/companion-python/venv/bin/python -m uvicorn backend.app:app --host 0.0.0.0 --port 8080
+```
+
+### 2. Frontend (Flutter) Setup & Execution
+```bash
+cd frontend
+
+# Get Flutter dependencies
+flutter pub get
+
+# Run Flutter widget test suite
+flutter test
+
+# Run the Flutter mobile app
+flutter run
+```
