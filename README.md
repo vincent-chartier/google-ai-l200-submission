@@ -64,6 +64,36 @@ The system is partitioned into two primary components:
 
 ---
 
+## 🧠 Strategic Model Routing & Tiered Selection
+
+The system utilizes semantic routing to assign each agent request to the optimal Gemini model tier based on reasoning complexity, latency requirements, and cost:
+
+| Model Tier | Model | Agents / Roles | Rationale |
+|---|---|---|---|
+| **Deep Reasoning** | `gemini-2.5-pro` | Search & Reco (Nuanced picks) | Nuanced taste matching, stylistic director comparisons, and complex multi-criteria film reasoning. |
+| **Fast / Conversational** | `gemini-2.5-flash` | Coordinator, Search & Reco (Catalog) | Sub-second latency for intent classification, user chat, and real-time screening searches. |
+| **Deterministic** | `gemini-2.5-flash` | Booking Agent | Strict schema following and zero-temperature execution for reservation holds and payment transactions. |
+| **Lite** | `gemini-2.0-flash-lite` | Housekeeping Agent | Ultra-low cost profile memory updates, watched history checks, and `.ics` calendar invitation generation. |
+
+---
+
+## 🛡️ Security Guardrails & Evaluation Plugins
+
+Integrated via Google ADK's native `BasePlugin` lifecycle hooks:
+
+### 1. Security Guardrails (`backend/plugins/security_guardrails.py`)
+- **`InputSecurityGuardrailPlugin`**: Intercepts prompt injections, jailbreak attempts, and system override attacks before agent execution. Redacts credit card numbers and sensitive PII.
+- **`BookingSafetyGuardrailPlugin`**: Enforces valid unexpired reservation holds before payment execution, stops replay attacks / double charges, and rate-limits seat hold requests.
+- **`A2UIValidationGuardrailPlugin`**: Validates that all emitted dynamic UI components strictly adhere to the A2UI schema contract.
+
+### 2. Evaluation & Telemetry Plugins (`backend/plugins/evaluation_plugins.py`)
+- **`RecommendationEvaluationPlugin`**: Automatically verifies negative constraints (**0% duplicate seen movies**) and confirms taste explanations ground themselves in actual user favorites.
+- **`ToolSequenceEvaluationPlugin`**: Asserts that multi-agent transaction steps follow the required order (`check_availability` -> `hold_seats` -> `process_payment` -> `calendar_invite`).
+- **`LatencyAndCostTelemetryPlugin`**: Tracks duration, token throughput, and estimated API cost per model tier (accessible via `/api/v1/telemetry`).
+
+
+---
+
 ## 📱 A2UI (Agent-to-UI) Protocol
 
 The backend agents communicate with the Flutter frontend using the declarative **A2UI Protocol**:
@@ -88,6 +118,11 @@ google-ai-l200-submission/
 │   │   ├── search_reco_agent.py   # Search & Recommendation Agent (MCP)
 │   │   ├── booking_agent.py       # Booking Agent (Custom Transactions)
 │   │   └── housekeeping_agent.py  # Housekeeping Agent (History & Calendar)
+│   ├── routers/
+│   │   └── semantic_router.py     # Intent classification & Gemini tiered model router
+│   ├── plugins/
+│   │   ├── security_guardrails.py # Input injection defense, hold validation, A2UI contract
+│   │   └── evaluation_plugins.py  # Duplicate avoidance, tool sequence, cost telemetry
 │   ├── mcp_servers/
 │   │   └── movie_search_server.py # FastMCP Movie Discovery Server
 │   ├── tools/
@@ -100,7 +135,10 @@ google-ai-l200-submission/
 │   └── tests/
 │       ├── test_agents.py         # Multi-agent flow & memory tests
 │       ├── test_mcp.py            # MCP server tool tests
-│       └── test_a2ui.py           # A2UI protocol serialization tests
+│       ├── test_a2ui.py           # A2UI protocol serialization tests
+│       ├── test_model_routing.py  # Intent & model tier routing tests
+│       ├── test_guardrails.py     # Security & transaction guardrail tests
+│       └── test_evaluations.py    # Negative constraint & telemetry tests
 ├── frontend/
 │   ├── pubspec.yaml                # Flutter project configuration
 │   ├── lib/

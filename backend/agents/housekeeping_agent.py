@@ -31,11 +31,12 @@ Rules:
 - When an outing is booked, offer or generate a calendar invite immediately.
 """
 
-def create_housekeeping_agent() -> LlmAgent:
-    """Instantiates the Housekeeping ADK Agent."""
+def create_housekeeping_agent(model: Optional[str] = None) -> LlmAgent:
+    """Instantiates the Housekeeping ADK Agent with lightweight model support."""
+    selected_model = model or DEFAULT_MODEL
     return LlmAgent(
         name="HousekeepingAgent",
-        model=DEFAULT_MODEL,
+        model=selected_model,
         description="Tracks user movie history, favorites, and dispatches calendar invitations for cinema outings.",
         instruction=HOUSEKEEPING_AGENT_INSTRUCTION,
         tools=[create_calendar_invite],
@@ -46,8 +47,9 @@ def create_housekeeping_agent() -> LlmAgent:
 class HousekeepingService:
     """Service wrapper for Housekeeping Agent operations and A2UI generation."""
 
-    def __init__(self):
-        self.agent = create_housekeeping_agent()
+    def __init__(self, model: Optional[str] = None):
+        self.model = model or DEFAULT_MODEL
+        self.agent = create_housekeeping_agent(model=self.model)
 
     def send_calendar_invite_for_booking(
         self,

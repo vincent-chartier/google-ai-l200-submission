@@ -34,11 +34,12 @@ Rules:
 - Emits confirmed ticket passes upon purchase.
 """
 
-def create_booking_agent() -> LlmAgent:
-    """Instantiates the Booking ADK Agent."""
+def create_booking_agent(model: Optional[str] = None) -> LlmAgent:
+    """Instantiates the Booking ADK Agent with deterministic model support."""
+    selected_model = model or DEFAULT_MODEL
     return LlmAgent(
         name="BookingAgent",
-        model=DEFAULT_MODEL,
+        model=selected_model,
         description="Manages theater seating layouts, reservation holds, and ticket payment transactions.",
         instruction=BOOKING_AGENT_INSTRUCTION,
         tools=[
@@ -54,8 +55,9 @@ def create_booking_agent() -> LlmAgent:
 class BookingService:
     """Service wrapper for Booking Agent workflows and A2UI generation."""
 
-    def __init__(self):
-        self.agent = create_booking_agent()
+    def __init__(self, model: Optional[str] = None):
+        self.model = model or DEFAULT_MODEL
+        self.agent = create_booking_agent(model=self.model)
 
     def show_seats_for_showtime(
         self,

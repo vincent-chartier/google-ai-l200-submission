@@ -59,7 +59,7 @@ class SeenRequest(BaseModel):
 
 @app.get("/api/v1/health")
 async def health_check():
-    """Health check endpoint."""
+    """Health check endpoint with model routing and security guardrail status."""
     return {
         "status": "healthy",
         "service": "cinema-outings-agent-backend",
@@ -69,8 +69,25 @@ async def health_check():
             "BookingAgent",
             "HousekeepingAgent"
         ],
-        "protocols": ["A2UI v1.0", "MCP v1.0"]
+        "protocols": ["A2UI v1.0", "MCP v1.0"],
+        "model_routing": coordinator.routing_config,
+        "security_guardrails": [
+            "InputSecurityGuardrailPlugin (Injection & PII Defense)",
+            "BookingSafetyGuardrailPlugin (Hold Validation & Rate-limiting)",
+            "A2UIValidationGuardrailPlugin (Contract Verification)"
+        ],
+        "evaluations": [
+            "RecommendationEvaluationPlugin (Negative Constraints / Zero Seen)",
+            "ToolSequenceEvaluationPlugin (Transaction State Machine)",
+            "LatencyAndCostTelemetryPlugin (Gemini Flash vs Pro vs Flash-Lite)"
+        ]
     }
+
+
+@app.get("/api/v1/telemetry")
+async def get_telemetry():
+    """Returns runtime latency and cost telemetry across model tiers."""
+    return coordinator.telemetry.get_summary()
 
 
 @app.post("/api/v1/agent/chat", response_model=A2UIMessage)

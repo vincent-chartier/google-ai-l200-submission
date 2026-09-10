@@ -42,12 +42,13 @@ Key Responsibilities & Rules:
 5. Be enthusiastic, concise, and structured.
 """
 
-def create_search_reco_agent(mcp_toolset: Optional[McpToolset] = None) -> LlmAgent:
-    """Instantiates the Search & Recommendation ADK Agent."""
+def create_search_reco_agent(mcp_toolset: Optional[McpToolset] = None, model: Optional[str] = None) -> LlmAgent:
+    """Instantiates the Search & Recommendation ADK Agent with tiered model support."""
     tools = [mcp_toolset] if mcp_toolset else [create_movie_mcp_toolset()]
+    selected_model = model or DEFAULT_MODEL
     return LlmAgent(
         name="SearchRecoAgent",
-        model=DEFAULT_MODEL,
+        model=selected_model,
         description="Finds movies playing in cinemas, fetches showtimes, and provides personalized recommendations based on user favorites and watched history.",
         instruction=SEARCH_RECO_INSTRUCTION,
         tools=tools,
@@ -58,9 +59,10 @@ def create_search_reco_agent(mcp_toolset: Optional[McpToolset] = None) -> LlmAge
 class SearchRecoService:
     """Service wrapper for Search & Recommendation agent execution and A2UI generation."""
 
-    def __init__(self):
+    def __init__(self, model: Optional[str] = None):
+        self.model = model or DEFAULT_MODEL
         self._mcp_toolset = create_movie_mcp_toolset()
-        self.agent = create_search_reco_agent(self._mcp_toolset)
+        self.agent = create_search_reco_agent(self._mcp_toolset, model=self.model)
 
     def search_and_recommend(
         self,
