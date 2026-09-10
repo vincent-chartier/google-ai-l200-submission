@@ -37,21 +37,54 @@ class _SeenHistoryScreenState extends State<SeenHistoryScreen> {
     final activeBooking = _state['active_booking'] as Map<String, dynamic>?;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Cinema Profile & Memory'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadState,
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: CinemaTheme.goldAccent))
-          : RefreshIndicator(
-              onRefresh: _loadState,
-              color: CinemaTheme.goldAccent,
-              child: ListView(
+      body: SafeArea(
+        top: false,
+        bottom: false,
+        child: Column(
+          children: [
+            // Full width header with Pulp Fiction image (no titles, no subtitles)
+            SizedBox(
+              width: double.infinity,
+              height: 190,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(
+                    'assets/images/pulp_fiction.jpg',
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Image.network(
+                        'https://image.tmdb.org/t/p/w780/suaEOtk1N1sgg2MTM7oZd2cfVp3.jpg',
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                      );
+                    },
+                  ),
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: SafeArea(
+                      child: IconButton.filled(
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.black.withOpacity(0.6),
+                          foregroundColor: CinemaTheme.goldAccent,
+                        ),
+                        icon: const Icon(Icons.refresh),
+                        onPressed: _loadState,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: CinemaTheme.goldAccent))
+                  : RefreshIndicator(
+                      onRefresh: _loadState,
+                      color: CinemaTheme.goldAccent,
+                      child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
                   // Active Booking Banner if present
@@ -141,8 +174,12 @@ class _SeenHistoryScreenState extends State<SeenHistoryScreen> {
                 ],
               ),
             ),
-    );
-  }
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
   Widget _buildActiveBookingCard(Map<String, dynamic> booking) {
     return Container(

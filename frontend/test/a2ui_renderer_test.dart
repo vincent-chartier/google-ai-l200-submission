@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cinema_outings/models/a2ui_models.dart';
 import 'package:cinema_outings/widgets/a2ui_renderer.dart';
+import 'package:cinema_outings/services/agent_client.dart';
+import 'package:cinema_outings/screens/outing_chat_screen.dart';
 
 void main() {
   testWidgets('A2UIRenderer renders movie_card correctly', (WidgetTester tester) async {
@@ -103,5 +105,27 @@ void main() {
 
     expect(find.text('Cinema Outing: Dune: Part Two'), findsOneWidget);
     expect(find.text('Add to Calendar'), findsOneWidget);
+  });
+
+  testWidgets('OutingChatScreen renders Pulp Fiction header and top search bar without titles', (WidgetTester tester) async {
+    final client = AgentClient(baseUrl: 'http://127.0.0.1:9999'); // offline mock port
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: OutingChatScreen(client: client),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify titles/subtitles are removed
+    expect(find.text('Cinema Outings AI'), findsNothing);
+    expect(find.text('OutingCoordinatorAgent'), findsNothing);
+
+    // Verify search bar is present at the top with search icon and hint
+    expect(find.byIcon(Icons.search), findsOneWidget);
+    expect(find.text('Search movies, screenings, seats, tickets...'), findsOneWidget);
+
+    // Verify introducing text is removed from initial load
+    expect(find.textContaining('Connected in offline simulation mode'), findsNothing);
   });
 }

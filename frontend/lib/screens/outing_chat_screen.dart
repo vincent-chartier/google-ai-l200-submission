@@ -37,7 +37,7 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
       _messages.add(ChatEntry(
         id: 'msg_init',
         sender: initialResp.agent,
-        text: initialResp.text,
+        text: '',
         timestamp: DateTime.now(),
         a2uiPayload: initialResp,
       ));
@@ -132,149 +132,179 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Column(
+      body: SafeArea(
+        top: false,
+        bottom: false,
+        child: Column(
           children: [
-            const Text('Cinema Outings AI', style: TextStyle(fontSize: 17)),
-            const SizedBox(height: 2),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: Colors.greenAccent,
-                    shape: BoxShape.circle,
-                  ),
+            // Full width header with Pulp Fiction image (no titles, no subtitles)
+            _buildPulpFictionHeader(),
+
+            // Search bar moved to the top, directly after pictured header
+            _buildTopSearchBar(),
+
+            // Quick replies below search bar
+            if (_quickReplies.isNotEmpty) _buildQuickReplies(),
+
+            if (_isLoading)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: CinemaTheme.goldAccent),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$_activeAgent is planning your outing...',
+                      style: const TextStyle(color: CinemaTheme.textSecondary, fontSize: 12),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  _activeAgent,
-                  style: const TextStyle(
-                    color: CinemaTheme.goldAccent,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+              ),
+
+            // Chat & A2UI Stream
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                itemCount: _messages.length,
+                itemBuilder: (context, index) {
+                  final entry = _messages[index];
+                  if (entry.isUser) {
+                    return _buildUserBubble(entry.text);
+                  } else {
+                    return _buildAgentBubble(entry);
+                  }
+                },
+              ),
             ),
           ],
         ),
       ),
-      body: Column(
+    );
+  }
+
+  Widget _buildPulpFictionHeader() {
+    return SizedBox(
+      width: double.infinity,
+      height: 190,
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          // Chat & A2UI Stream
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final entry = _messages[index];
-                if (entry.isUser) {
-                  return _buildUserBubble(entry.text);
-                } else {
-                  return _buildAgentBubble(entry);
-                }
-              },
-            ),
+          Image.asset(
+            'assets/images/pulp_fiction.jpg',
+            fit: BoxFit.cover,
+            width: double.infinity,
+            errorBuilder: (context, error, stackTrace) {
+              return Image.network(
+                'https://image.tmdb.org/t/p/w780/suaEOtk1N1sgg2MTM7oZd2cfVp3.jpg',
+                fit: BoxFit.cover,
+                width: double.infinity,
+              );
+            },
           ),
-
-          if (_isLoading)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: CinemaTheme.goldAccent),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '$_activeAgent is planning your outing...',
-                    style: const TextStyle(color: CinemaTheme.textSecondary, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-
-          // Quick Replies
-          if (_quickReplies.isNotEmpty)
-            SizedBox(
-              height: 42,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                itemCount: _quickReplies.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  final qr = _quickReplies[index];
-                  return ActionChip(
-                    backgroundColor: CinemaTheme.elevatedBackground,
-                    side: const BorderSide(color: CinemaTheme.goldAccent, width: 0.8),
-                    label: Text(
-                      qr.label,
-                      style: const TextStyle(color: CinemaTheme.goldAccent, fontSize: 12),
-                    ),
-                    onPressed: () {
-                      _handleA2UIAction(A2UIAction(
-                        label: qr.label,
-                        action: qr.action,
-                        payload: qr.payload,
-                      ));
-                    },
-                  );
-                },
-              ),
-            ),
-
-          const SizedBox(height: 8),
-
-          // Input Bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              color: CinemaTheme.cardBackground,
-              border: Border(top: BorderSide(color: CinemaTheme.elevatedBackground)),
-            ),
-            child: SafeArea(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _textController,
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
-                      decoration: InputDecoration(
-                        hintText: 'Ask for movies, seats, tickets, or calendar...',
-                        hintStyle: const TextStyle(color: CinemaTheme.textSecondary, fontSize: 13),
-                        filled: true,
-                        fillColor: CinemaTheme.darkBackground,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      onSubmitted: _handleUserSubmit,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    style: IconButton.styleFrom(
-                      backgroundColor: CinemaTheme.goldAccent,
-                      foregroundColor: Colors.black,
-                    ),
-                    icon: const Icon(Icons.send_rounded, size: 20),
-                    onPressed: () => _handleUserSubmit(_textController.text),
-                  ),
-                ],
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 35,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    CinemaTheme.darkBackground.withOpacity(0.85),
+                  ],
+                ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTopSearchBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: CinemaTheme.cardBackground,
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.white.withOpacity(0.08),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _textController,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'Search movies, screenings, seats, tickets...',
+                hintStyle: const TextStyle(color: CinemaTheme.textSecondary, fontSize: 13),
+                filled: true,
+                fillColor: CinemaTheme.darkBackground,
+                prefixIcon: const Icon(Icons.search, color: CinemaTheme.goldAccent, size: 20),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              onSubmitted: _handleUserSubmit,
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton.filled(
+            style: IconButton.styleFrom(
+              backgroundColor: CinemaTheme.goldAccent,
+              foregroundColor: Colors.black,
+            ),
+            icon: const Icon(Icons.send_rounded, size: 20),
+            onPressed: () => _handleUserSubmit(_textController.text),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickReplies() {
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      color: CinemaTheme.darkBackground,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        itemCount: _quickReplies.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final qr = _quickReplies[index];
+          return ActionChip(
+            backgroundColor: CinemaTheme.elevatedBackground,
+            side: const BorderSide(color: CinemaTheme.goldAccent, width: 0.8),
+            label: Text(
+              qr.label,
+              style: const TextStyle(color: CinemaTheme.goldAccent, fontSize: 12),
+            ),
+            onPressed: () {
+              _handleA2UIAction(A2UIAction(
+                label: qr.label,
+                action: qr.action,
+                payload: qr.payload,
+              ));
+            },
+          );
+        },
       ),
     );
   }
@@ -301,6 +331,9 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
 
   Widget _buildAgentBubble(ChatEntry entry) {
     final payload = entry.a2uiPayload;
+    final isInitial = entry.id == 'msg_init';
+    final hasText = !isInitial && entry.text.trim().isNotEmpty;
+
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
@@ -308,27 +341,30 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Agent sender label
-            Row(
-              children: [
-                const Icon(Icons.smart_toy_outlined, size: 14, color: CinemaTheme.goldAccent),
-                const SizedBox(width: 4),
-                Text(
-                  entry.sender,
-                  style: const TextStyle(
-                    color: CinemaTheme.goldAccent,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+            // Agent sender label (hidden for initial load)
+            if (!isInitial) ...[
+              Row(
+                children: [
+                  const Icon(Icons.smart_toy_outlined, size: 14, color: CinemaTheme.goldAccent),
+                  const SizedBox(width: 4),
+                  Text(
+                    entry.sender,
+                    style: const TextStyle(
+                      color: CinemaTheme.goldAccent,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
+                ],
+              ),
+              const SizedBox(height: 4),
+            ],
 
             // Text message bubble
-            if (entry.text.isNotEmpty)
+            if (hasText)
               Container(
                 padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 6),
                 decoration: BoxDecoration(
                   color: CinemaTheme.cardBackground,
                   borderRadius: BorderRadius.circular(14),
