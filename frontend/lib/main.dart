@@ -17,6 +17,36 @@ class CinemaOutingsApp extends StatelessWidget {
       title: 'Cinema Outings AI',
       debugShowCheckedModeBanner: false,
       theme: CinemaTheme.darkTheme,
+      builder: (context, child) {
+        return Scaffold(
+          backgroundColor: const Color(0xFF09080E),
+          body: Center(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 440),
+              decoration: BoxDecoration(
+                color: CinemaTheme.darkBackground,
+                border: Border.symmetric(
+                  vertical: BorderSide(
+                    color: Colors.white.withOpacity(0.08),
+                    width: 1,
+                  ),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.6),
+                    blurRadius: 30,
+                    spreadRadius: 5,
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(0),
+                child: child,
+              ),
+            ),
+          ),
+        );
+      },
       home: const MainNavigationScreen(),
     );
   }
