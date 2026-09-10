@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/a2ui_models.dart';
 
@@ -7,9 +8,9 @@ class AgentClient {
   final String sessionId;
 
   AgentClient({
-    this.baseUrl = 'http://localhost:8080',
+    String? baseUrl,
     this.sessionId = 'mobile_user_01',
-  });
+  }) : baseUrl = baseUrl ?? (kIsWeb ? Uri.base.origin : 'http://localhost:8080');
 
   /// Sends a natural language message to the Agent Coordinator
   Future<A2UIMessage> sendMessage(String text) async {

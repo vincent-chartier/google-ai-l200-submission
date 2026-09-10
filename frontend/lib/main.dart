@@ -37,7 +37,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void initState() {
     super.initState();
     _client = AgentClient(
-      baseUrl: 'http://localhost:8080',
       sessionId: 'cinema_fan_01',
     );
   }

@@ -131,6 +131,15 @@ async def add_seen_movie(req: SeenRequest):
     return {"success": True, "entry": entry, "state": state}
 
 
+# Mount Flutter Web app if built
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+
+web_dir = Path(__file__).resolve().parent.parent / "frontend" / "build" / "web"
+if web_dir.exists():
+    app.mount("/", StaticFiles(directory=str(web_dir), html=True), name="flutter_web")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("backend.app:app", host=APP_HOST, port=APP_PORT, reload=True)
