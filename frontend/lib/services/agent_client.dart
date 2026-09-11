@@ -74,6 +74,26 @@ class AgentClient {
     return {};
   }
 
+  /// Triggers server-side history compaction to prevent context bloat
+  Future<Map<String, dynamic>> compactHistory({int maxRecentTurns = 4, int tokenThreshold = 400}) async {
+    final uri = Uri.parse('$baseUrl/api/v1/session/compact');
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'session_id': sessionId,
+          'max_recent_turns': maxRecentTurns,
+          'token_threshold': tokenThreshold,
+        }),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return {'compacted': false};
+  }
+
   A2UIMessage _generateOfflineFallback(String input) {
     return A2UIMessage(
       sessionId: sessionId,

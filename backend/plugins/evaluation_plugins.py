@@ -153,3 +153,49 @@ class LatencyAndCostTelemetryPlugin(BasePlugin):
             "total_estimated_cost_usd": round(total_cost, 6),
             "calls_per_model": per_model
         }
+
+
+class ContextCompactionEvaluationPlugin(BasePlugin):
+    """Evaluates context compaction efficiency, token reduction ratio, and state preservation."""
+
+    def __init__(self):
+        super().__init__(name="context_compaction_evaluation_plugin")
+
+    def evaluate_compaction(
+        self,
+        tokens_before: int,
+        tokens_after: int,
+        turns_compacted: int,
+        remaining_turns: int
+    ) -> Dict[str, Any]:
+        """Evaluates token reduction efficiency and verifies context bounds."""
+        tokens_saved = max(0, tokens_before - tokens_after)
+        reduction_rate = (tokens_saved / tokens_before) if tokens_before > 0 else 0.0
+
+        return {
+            "tokens_before": tokens_before,
+            "tokens_after": tokens_after,
+            "tokens_saved": tokens_saved,
+            "reduction_rate": round(reduction_rate, 4),
+            "turns_compacted": turns_compacted,
+            "remaining_turns": remaining_turns,
+            "passed": tokens_after <= tokens_before and turns_compacted > 0
+        }
+
+    def evaluate_entity_preservation(
+        self,
+        expected_entities: List[str],
+        actual_entities: List[str]
+    ) -> Dict[str, Any]:
+        """Verifies that key user entities/preferences were preserved after dialogue compaction."""
+        actual_lower = {e.strip().lower() for e in actual_entities}
+        preserved = [e for e in expected_entities if e.strip().lower() in actual_lower]
+        missing = [e for e in expected_entities if e.strip().lower() not in actual_lower]
+
+        return {
+            "expected_count": len(expected_entities),
+            "preserved_count": len(preserved),
+            "missing": missing,
+            "preservation_rate": (len(preserved) / len(expected_entities)) if expected_entities else 1.0,
+            "passed": len(missing) == 0
+        }

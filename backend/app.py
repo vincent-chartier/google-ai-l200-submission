@@ -57,6 +57,12 @@ class SeenRequest(BaseModel):
     user_score: float = 5.0
 
 
+class CompactRequest(BaseModel):
+    session_id: str = "demo_session"
+    max_recent_turns: int = 4
+    token_threshold: int = 400
+
+
 @app.get("/api/v1/health")
 async def health_check():
     """Health check endpoint with model routing and security guardrail status."""
@@ -79,7 +85,8 @@ async def health_check():
         "evaluations": [
             "RecommendationEvaluationPlugin (Negative Constraints / Zero Seen)",
             "ToolSequenceEvaluationPlugin (Transaction State Machine)",
-            "LatencyAndCostTelemetryPlugin (Gemini Flash vs Pro vs Flash-Lite)"
+            "LatencyAndCostTelemetryPlugin (Gemini Flash vs Pro vs Flash-Lite)",
+            "ContextCompactionEvaluationPlugin (History Compaction & Token Reducer)"
         ]
     }
 
@@ -146,6 +153,17 @@ async def add_seen_movie(req: SeenRequest):
         user_score=req.user_score
     )
     return {"success": True, "entry": entry, "state": state}
+
+
+@app.post("/api/v1/session/compact")
+async def compact_session_history(req: CompactRequest):
+    """Triggers dialogue history compaction to prune context bloat."""
+    res = coordinator.compact_session_history(
+        session_id=req.session_id,
+        max_recent_turns=req.max_recent_turns,
+        token_threshold=req.token_threshold
+    )
+    return res
 
 
 # Mount Flutter Web app if built

@@ -23,7 +23,9 @@ from backend.agents.housekeeping_agent import HousekeepingService
 from backend.state.memory_manager import (
     initialize_user_session_state,
     add_movie_to_seen_history,
-    add_movie_to_favorites
+    add_movie_to_favorites,
+    add_conversation_turn,
+    get_compacted_context
 )
 from backend.routers.semantic_router import (
     SemanticRouter,
@@ -122,7 +124,11 @@ class OutingCoordinatorService:
                 ]
             )
 
-        # 2. Semantic Intent & Model Tier Routing
+        # 2. Add incoming user turn to history & compact context if needed
+        add_conversation_turn(session_state, role="user", text=sanitized_message, sender="user")
+        self.housekeeping_service.compact_conversation_history(session_state)
+
+        # 3. Semantic Intent & Model Tier Routing
         route = self.router.route(sanitized_message, session_state=session_state)
 
         # 3. Intent Dispatch with Memory Passing
@@ -246,7 +252,17 @@ class OutingCoordinatorService:
         for comp in response.components:
             self.a2ui_guardrail.validate_component(comp)
 
-        # 5. Telemetry & Cost Recording
+        # 5. Record agent response in history & compact context if needed
+        add_conversation_turn(
+            session_state,
+            role="agent",
+            text=response.text,
+            sender=response.agent,
+            a2ui_components=response.components
+        )
+        self.housekeeping_service.compact_conversation_history(session_state)
+
+        # 6. Telemetry & Cost Recording
         duration_ms = (time.time() - t0) * 1000
         self.telemetry.record_call(
             agent_name=response.agent,
@@ -265,6 +281,11 @@ class OutingCoordinatorService:
         """Processes interactive actions emitted by Flutter A2UI widgets."""
         t0 = time.time()
         session_state = self.get_or_create_session(session_id)
+
+        # Record action in conversation history & compact context if needed
+        action_repr = f"User Action: {action} ({payload})" if payload else f"User Action: {action}"
+        add_conversation_turn(session_state, role="user", text=action_repr, sender="user")
+        self.housekeeping_service.compact_conversation_history(session_state)
 
         if action == "SELECT_SHOWTIME":
             showtime_id = payload.get("showtime_id", "SH-DUNE-1930")
@@ -396,6 +417,16 @@ class OutingCoordinatorService:
         for comp in response.components:
             self.a2ui_guardrail.validate_component(comp)
 
+        # Record agent action response in history & compact context if needed
+        add_conversation_turn(
+            session_state,
+            role="agent",
+            text=response.text,
+            sender=response.agent,
+            a2ui_components=response.components
+        )
+        self.housekeeping_service.compact_conversation_history(session_state)
+
         # Record Telemetry
         duration_ms = (time.time() - t0) * 1000
         self.telemetry.record_call(
@@ -405,3 +436,17 @@ class OutingCoordinatorService:
         )
 
         return response
+
+    def compact_session_history(
+        self,
+        session_id: str,
+        max_recent_turns: int = 4,
+        token_threshold: int = 400
+    ) -> Dict[str, Any]:
+        """Triggers conversation history compaction for a user session."""
+        session_state = self.get_or_create_session(session_id)
+        return self.housekeeping_service.compact_conversation_history(
+            session_state=session_state,
+            max_recent_turns=max_recent_turns,
+            token_threshold=token_threshold
+        )

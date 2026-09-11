@@ -72,6 +72,10 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
           a2uiPayload: response,
         ));
       });
+      // Compact conversation history if messages accumulate
+      if (_messages.length > 10) {
+        widget.client.compactHistory();
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Agent connection error: $e')),
@@ -107,6 +111,9 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
           a2uiPayload: response,
         ));
       });
+      if (_messages.length > 10) {
+        widget.client.compactHistory();
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Action error: $e')),

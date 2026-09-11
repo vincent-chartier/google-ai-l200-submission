@@ -17,18 +17,36 @@ from backend.state.memory_manager import (
     add_movie_to_seen_history,
     add_movie_to_favorites,
     get_favorite_movie_titles,
-    get_seen_movie_titles
+    get_seen_movie_titles,
+    estimate_history_tokens,
+    apply_history_compaction,
+    get_compacted_context
 )
+
+def compact_history_tool(
+    turns_summary: str,
+    extracted_favorites: Optional[List[str]] = None,
+    extracted_seen: Optional[List[str]] = None
+) -> Dict[str, Any]:
+    """ADK Tool for compacting older conversation turns and saving extracted profile entities."""
+    return {
+        "success": True,
+        "summary": turns_summary,
+        "extracted_favorites": extracted_favorites or [],
+        "extracted_seen": extracted_seen or []
+    }
 
 HOUSEKEEPING_AGENT_INSTRUCTION = """You are the Housekeeping & Profile Specialist Agent for Cinema Outings.
 Your duties:
 1. Watched Movies: Maintain the user's history of watched films so they never get recommended something they've already seen.
 2. Favorites Management: Keep track of films the user loves, enabling the Search & Reco Agent to perform taste matching.
 3. Calendar Invites: Coordinate and dispatch calendar invites for upcoming movie bookings with exact venue, hall, and seat info.
+4. History & Context Compaction: Compact older dialogue turns into concise rolling summaries to prevent LLM context bloat and preserve critical user intent.
 
 Rules:
 - Ensure the user's session state is kept fresh with accurate favorites and watched titles.
 - When an outing is booked, offer or generate a calendar invite immediately.
+- Strip redundant conversational filler during compaction while preserving movie titles, dates, seats, and preferences.
 """
 
 def create_housekeeping_agent(model: Optional[str] = None) -> LlmAgent:
@@ -37,9 +55,9 @@ def create_housekeeping_agent(model: Optional[str] = None) -> LlmAgent:
     return LlmAgent(
         name="HousekeepingAgent",
         model=selected_model,
-        description="Tracks user movie history, favorites, and dispatches calendar invitations for cinema outings.",
+        description="Tracks user movie history, favorites, manages history compaction, and dispatches calendar invitations for cinema outings.",
         instruction=HOUSEKEEPING_AGENT_INSTRUCTION,
-        tools=[create_calendar_invite],
+        tools=[create_calendar_invite, compact_history_tool],
         output_key="housekeeping_result"
     )
 
@@ -134,4 +152,102 @@ class HousekeepingService:
         return {
             "text": text,
             "components": [comp]
+        }
+
+    def compact_conversation_history(
+        self,
+        session_state: Dict[str, Any],
+        max_recent_turns: int = 4,
+        token_threshold: int = 400
+    ) -> Dict[str, Any]:
+        """Compacts older conversation turns into rolling memory to manage context bloat.
+        
+        Extracts user preferences into session state and consolidates dialogue history.
+        """
+        history = session_state.get("conversation_history", [])
+        existing_summary = session_state.get("conversation_summary", "")
+        tokens_before = estimate_history_tokens(history, existing_summary)
+
+        # Check if compaction threshold is reached
+        needs_compaction = len(history) > max_recent_turns or tokens_before > token_threshold
+        if not needs_compaction or len(history) <= 1:
+            return {
+                "compacted": False,
+                "reason": "Context within token and turn limits",
+                "tokens_before": tokens_before,
+                "tokens_after": tokens_before,
+                "tokens_saved": 0,
+                "total_turns": len(history)
+            }
+
+        # Determine slice of turns to compact (everything except recent window)
+        num_to_compact = len(history) - max_recent_turns if len(history) > max_recent_turns else max(1, len(history) // 2)
+        turns_to_compact = history[:num_to_compact]
+
+        # 1. Entity Extraction from compacted turns
+        for turn in turns_to_compact:
+            text_lower = turn.get("text", "").lower()
+            # Extract favorite mentions
+            for fav_cue in ["favorite", "love", "loved", "fan of"]:
+                if fav_cue in text_lower:
+                    from backend.mcp_servers.movie_search_server import MOVIES_DATABASE
+                    for m in MOVIES_DATABASE:
+                        if m["title"].lower() in text_lower:
+                            add_movie_to_favorites(
+                                session_state,
+                                movie_title=m["title"],
+                                genre=m.get("genres", ["Sci-Fi"])[0] if m.get("genres") else "Sci-Fi"
+                            )
+            # Extract seen mentions
+            for seen_cue in ["watched", "already seen", "saw"]:
+                if seen_cue in text_lower:
+                    from backend.mcp_servers.movie_search_server import MOVIES_DATABASE
+                    for m in MOVIES_DATABASE:
+                        if m["title"].lower() in text_lower:
+                            add_movie_to_seen_history(
+                                session_state,
+                                movie_title=m["title"]
+                            )
+
+        # 2. Build semantic compaction summary
+        summary_points = []
+        for turn in turns_to_compact:
+            role = turn.get("role", "user")
+            sender = turn.get("sender") or role or "user"
+            text = turn.get("text", "").strip()
+            ui_sum = turn.get("ui_summary")
+            
+            if ui_sum:
+                summary_points.append(f"{sender}: {ui_sum}")
+            elif text:
+                words = text.split()
+                snippet = " ".join(words[:5]) + ("..." if len(words) > 5 else "")
+                summary_points.append(f"{sender}: {snippet}")
+
+        condensed_delta = " | ".join(summary_points)
+        if existing_summary:
+            combined = f"{existing_summary} | {condensed_delta}"
+            if len(combined) > 500:
+                parts = combined.split(" | ")
+                new_summary = "Earlier context: " + " | ".join(p.replace("Earlier context: ", "") for p in parts[-8:])
+            else:
+                new_summary = combined
+        else:
+            new_summary = f"Earlier context: {condensed_delta}"
+
+        # 3. Apply compaction in session memory
+        meta = apply_history_compaction(session_state, new_summary, num_to_compact)
+        remaining_history = session_state.get("conversation_history", [])
+        tokens_after = estimate_history_tokens(remaining_history, new_summary)
+        tokens_saved = max(0, tokens_before - tokens_after)
+
+        return {
+            "compacted": True,
+            "turns_compacted_count": num_to_compact,
+            "remaining_turns_count": len(remaining_history),
+            "tokens_before": tokens_before,
+            "tokens_after": tokens_after,
+            "tokens_saved": tokens_saved,
+            "new_summary": new_summary,
+            "compaction_metadata": meta
         }
