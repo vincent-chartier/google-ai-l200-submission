@@ -140,7 +140,7 @@ void main() {
     expect(find.text('Add to Calendar'), findsOneWidget);
   });
 
-  testWidgets('OutingChatScreen renders Pulp Fiction header and top search bar without titles', (WidgetTester tester) async {
+  testWidgets('OutingChatScreen renders Truman Show background and top search bar without titles', (WidgetTester tester) async {
     final client = AgentClient(baseUrl: 'http://127.0.0.1:9999'); // offline mock port
 
     await tester.pumpWidget(

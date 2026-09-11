@@ -42,7 +42,7 @@ class _SeenHistoryScreenState extends State<SeenHistoryScreen> {
         bottom: false,
         child: Column(
           children: [
-            // Full width header with Pulp Fiction image (no titles, no subtitles)
+            // Full width header with Truman Show stairs image (no titles, no subtitles)
             SizedBox(
               width: double.infinity,
               height: 190,
@@ -50,12 +50,12 @@ class _SeenHistoryScreenState extends State<SeenHistoryScreen> {
                 fit: StackFit.expand,
                 children: [
                   Image.asset(
-                    'assets/images/pulp_fiction.jpg',
+                    'assets/images/truman_show_stairs.jpg',
                     fit: BoxFit.cover,
                     width: double.infinity,
                     errorBuilder: (context, error, stackTrace) {
-                      return Image.network(
-                        'https://image.tmdb.org/t/p/w780/suaEOtk1N1sgg2MTM7oZd2cfVp3.jpg',
+                      return Image.asset(
+                        'assets/images/pulp_fiction.jpg',
                         fit: BoxFit.cover,
                         width: double.infinity,
                       );

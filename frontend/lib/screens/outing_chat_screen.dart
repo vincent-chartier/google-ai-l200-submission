@@ -144,41 +144,21 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Background Image with transparency (more visible as requested)
+          // Background Image (no transparency) - man on stairs in The Truman Show
           Positioned.fill(
-            child: Opacity(
-              opacity: 0.40,
-              child: Image.asset(
-                'assets/images/pulp_fiction.jpg',
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: double.infinity,
-                errorBuilder: (context, error, stackTrace) {
-                  return Image.network(
-                    'https://image.tmdb.org/t/p/w780/suaEOtk1N1sgg2MTM7oZd2cfVp3.jpg',
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
-                  );
-                },
-              ),
-            ),
-          ),
-
-          // Glowing blue-to-pink ambient gradient overlay with higher transparency so background shows through
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    const Color(0xFF080D26).withOpacity(0.65), // Deep Midnight Blue
-                    const Color(0xFF140A28).withOpacity(0.58), // Deep Violet
-                    const Color(0xFF280720).withOpacity(0.65), // Deep Pink glow
-                  ],
-                ),
-              ),
+            child: Image.asset(
+              'assets/images/truman_show_stairs.jpg',
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              errorBuilder: (context, error, stackTrace) {
+                return Image.asset(
+                  'assets/images/pulp_fiction.jpg',
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                );
+              },
             ),
           ),
 
