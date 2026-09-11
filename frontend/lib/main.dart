@@ -99,14 +99,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         },
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.forum_outlined, color: CinemaTheme.textSecondary),
-            selectedIcon: Icon(Icons.forum, color: CinemaTheme.hotPink),
-            label: 'AI Planner',
+            icon: Icon(Icons.home_outlined, color: CinemaTheme.textSecondary),
+            selectedIcon: Icon(Icons.home, color: CinemaTheme.hotPink),
+            label: 'Home',
           ),
           NavigationDestination(
             icon: Icon(Icons.movie_filter_outlined, color: CinemaTheme.textSecondary),
             selectedIcon: Icon(Icons.movie_filter, color: CinemaTheme.electricBlue),
-            label: 'My Cinema Profile',
+            label: 'My Cinema',
           ),
         ],
       ),

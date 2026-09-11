@@ -18,6 +18,7 @@ from backend.protocols.a2ui import (
     build_ticket_pass_component,
     A2UIComponent
 )
+from backend.state.memory_manager import add_movie_to_seen_history
 
 BOOKING_AGENT_INSTRUCTION = """You are the Booking Specialist Agent for Cinema Outings.
 Your role is to guide guests through seat selection, holding seats, and completing ticket purchases.
@@ -123,6 +124,13 @@ class BookingService:
         # Update session memory
         if session_state is not None:
             session_state["active_booking"] = booking
+            # A film is considered watched when a ticket has been purchased for it
+            if booking.get("movie_title"):
+                add_movie_to_seen_history(
+                    session_state,
+                    movie_title=booking["movie_title"],
+                    cinema=booking.get("cinema", "Metropolis Cinema IMAX")
+                )
 
         seats_str = ", ".join(booking["seats"])
         reply_text = (

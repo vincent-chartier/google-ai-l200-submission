@@ -67,6 +67,12 @@ async def test_coordinator_seat_and_booking_flow():
     assert pay_resp.components[0].type == "ticket_pass"
     assert "BK-" in pay_resp.components[0].props["booking_id"]
 
+    # Verify the film is marked as watched upon ticket purchase
+    sess_state = coordinator.get_or_create_session(session_id)
+    seen_titles = [m["title"] for m in sess_state.get("seen_movies", [])]
+    assert any("Dune" in t for t in seen_titles)
+    assert any("Dune" in m["title"] for m in pay_resp.state_updates.get("seen_movies", []))
+
 
 @pytest.mark.asyncio
 async def test_housekeeping_calendar_invite():

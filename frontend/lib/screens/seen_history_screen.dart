@@ -62,6 +62,32 @@ class _SeenHistoryScreenState extends State<SeenHistoryScreen> {
                     },
                   ),
                   Positioned(
+                    bottom: 16,
+                    left: 16,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text(
+                          'My Cinema',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Preferences & Watched Films',
+                          style: TextStyle(
+                            color: CinemaTheme.softPink,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Positioned(
                     top: 10,
                     right: 10,
                     child: SafeArea(
@@ -122,12 +148,12 @@ class _SeenHistoryScreenState extends State<SeenHistoryScreen> {
 
                   const SizedBox(height: 20),
 
-                  // Favorites Section
+                  // Favorites / Preferences Section
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'FAVORITE FILMS (${favorites.length})',
+                        'MY PREFERENCES (${favorites.length})',
                         style: const TextStyle(
                           color: CinemaTheme.goldAccent,
                           fontSize: 12,
@@ -137,7 +163,7 @@ class _SeenHistoryScreenState extends State<SeenHistoryScreen> {
                       ),
                       TextButton.icon(
                         icon: const Icon(Icons.add, size: 16),
-                        label: const Text('Add Favorite'),
+                        label: const Text('Add Preference'),
                         style: TextButton.styleFrom(foregroundColor: CinemaTheme.goldAccent),
                         onPressed: _showAddFavoriteDialog,
                       ),
@@ -145,7 +171,7 @@ class _SeenHistoryScreenState extends State<SeenHistoryScreen> {
                   ),
                   const SizedBox(height: 8),
                   if (favorites.isEmpty)
-                    const Text('No favorites saved yet.', style: TextStyle(color: CinemaTheme.textSecondary))
+                    const Text('No preferences saved yet.', style: TextStyle(color: CinemaTheme.textSecondary))
                   else
                     ...favorites.map((fav) => _buildFavoriteItem(fav)),
 
@@ -156,7 +182,7 @@ class _SeenHistoryScreenState extends State<SeenHistoryScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'WATCHED HISTORY (${seen.length})',
+                        'FILMS WATCHED (${seen.length})',
                         style: const TextStyle(
                           color: CinemaTheme.textSecondary,
                           fontSize: 12,

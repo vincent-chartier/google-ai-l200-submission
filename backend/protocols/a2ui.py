@@ -40,7 +40,8 @@ class A2UIMessage(BaseModel):
 def build_movie_card_component(
     movie: Dict[str, Any],
     taste_match_reason: str = "",
-    showtimes: List[str] = None
+    showtimes: List[str] = None,
+    category: str = "on_show"
 ) -> A2UIComponent:
     """Builds an A2UI movie card component."""
     theater_name = movie.get("theater", "Metropolis Cinema IMAX")
@@ -53,6 +54,8 @@ def build_movie_card_component(
         "theater": theater_name,
         "location": full_location,
         "theater_location": full_location,
+        "category": category,
+        "group": "On Show" if category == "on_show" else "Suggested",
         "genres": movie.get("genres", []),
         "year": movie.get("year", 2024),
         "runtime": movie.get("runtime", "120 min"),

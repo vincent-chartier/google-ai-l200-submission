@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/a2ui_models.dart';
 import '../services/agent_client.dart';
 import '../widgets/a2ui_renderer.dart';
+import '../widgets/movie_card_widget.dart';
 import '../theme/cinema_theme.dart';
 
 class OutingChatScreen extends StatefulWidget {
@@ -143,10 +144,10 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Background Image with transparency
+          // Background Image with transparency (more visible as requested)
           Positioned.fill(
             child: Opacity(
-              opacity: 0.16,
+              opacity: 0.40,
               child: Image.asset(
                 'assets/images/pulp_fiction.jpg',
                 fit: BoxFit.cover,
@@ -164,7 +165,7 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
             ),
           ),
 
-          // Glowing blue-to-pink ambient gradient overlay
+          // Glowing blue-to-pink ambient gradient overlay with higher transparency so background shows through
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -172,9 +173,9 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xFF080D26).withOpacity(0.88), // Deep Midnight Blue
-                    const Color(0xFF140A28).withOpacity(0.82), // Deep Violet
-                    const Color(0xFF280720).withOpacity(0.88), // Deep Pink glow
+                    const Color(0xFF080D26).withOpacity(0.65), // Deep Midnight Blue
+                    const Color(0xFF140A28).withOpacity(0.58), // Deep Violet
+                    const Color(0xFF280720).withOpacity(0.65), // Deep Pink glow
                   ],
                 ),
               ),
@@ -304,32 +305,77 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
 
   Widget _buildQuickReplies() {
     return Container(
-      height: 44,
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      color: Colors.transparent,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: _quickReplies.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final qr = _quickReplies[index];
-          return ActionChip(
-            backgroundColor: CinemaTheme.elevatedBackground.withOpacity(0.85),
-            side: BorderSide(color: CinemaTheme.electricBlue.withOpacity(0.55), width: 1),
-            label: Text(
-              qr.label,
-              style: const TextStyle(color: CinemaTheme.softPink, fontSize: 12, fontWeight: FontWeight.w600),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF141838), // Solid standout card background
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: CinemaTheme.neonCyan.withOpacity(0.5),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.5),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+          BoxShadow(
+            color: CinemaTheme.electricBlue.withOpacity(0.16),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.bolt, size: 16, color: CinemaTheme.neonCyan),
+              SizedBox(width: 6),
+              Text(
+                'Quick actions',
+                style: TextStyle(
+                  color: CinemaTheme.neonCyan,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _quickReplies.map((qr) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ActionChip(
+                    backgroundColor: const Color(0xFF1C2248),
+                    side: BorderSide(color: CinemaTheme.electricBlue.withOpacity(0.6), width: 1),
+                    label: Text(
+                      qr.label,
+                      style: const TextStyle(
+                        color: CinemaTheme.softPink,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    onPressed: () {
+                      _handleA2UIAction(A2UIAction(
+                        label: qr.label,
+                        action: qr.action,
+                        payload: qr.payload,
+                      ));
+                    },
+                  ),
+                );
+              }).toList(),
             ),
-            onPressed: () {
-              _handleA2UIAction(A2UIAction(
-                label: qr.label,
-                action: qr.action,
-                payload: qr.payload,
-              ));
-            },
-          );
-        },
+          ),
+        ],
       ),
     );
   }
@@ -365,6 +411,24 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
     final isInitial = entry.id == 'msg_init';
     final hasText = !isInitial && entry.text.trim().isNotEmpty;
 
+    // Filter movie_card components to group into "On Show" and "Suggested"
+    final movieCards = payload?.components.where((c) => c.type == 'movie_card').toList() ?? [];
+    final otherComponents = payload?.components.where((c) => c.type != 'movie_card').toList() ?? [];
+
+    final onShowList = <A2UIComponent>[];
+    final suggestedList = <A2UIComponent>[];
+
+    for (int i = 0; i < movieCards.length; i++) {
+      final c = movieCards[i];
+      final cat = c.props['category'] as String?;
+      final grp = c.props['group'] as String?;
+      if (cat == 'suggested' || grp == 'Suggested' || (cat == null && grp == null && i > 0)) {
+        suggestedList.add(c);
+      } else {
+        onShowList.add(c);
+      }
+    }
+
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
@@ -397,9 +461,16 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
                 padding: const EdgeInsets.all(12),
                 margin: const EdgeInsets.only(bottom: 6),
                 decoration: BoxDecoration(
-                  color: CinemaTheme.cardBackground.withOpacity(0.92),
+                  color: const Color(0xFF141838),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: CinemaTheme.electricBlue.withOpacity(0.3)),
+                  border: Border.all(color: CinemaTheme.electricBlue.withOpacity(0.4)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.4),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Text(
                   entry.text,
@@ -407,9 +478,26 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
                 ),
               ),
 
-            // Dynamic A2UI Components
-            if (payload != null && payload.components.isNotEmpty)
-              ...payload.components.map((comp) {
+            // Grouped Movie Cards: "On Show" and "Suggested"
+            if (onShowList.isNotEmpty)
+              _buildMovieGroupCard(
+                title: 'On Show',
+                icon: Icons.movie_outlined,
+                accentColor: CinemaTheme.electricBlue,
+                components: onShowList,
+              ),
+
+            if (suggestedList.isNotEmpty)
+              _buildMovieGroupCard(
+                title: 'Suggested',
+                icon: Icons.auto_awesome,
+                accentColor: CinemaTheme.hotPink,
+                components: suggestedList,
+              ),
+
+            // Other dynamic A2UI components
+            if (otherComponents.isNotEmpty)
+              ...otherComponents.map((comp) {
                 return A2UIRenderer(
                   component: comp,
                   onAction: _handleA2UIAction,
@@ -417,6 +505,73 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
               }),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMovieGroupCard({
+    required String title,
+    required IconData icon,
+    required Color accentColor,
+    required List<A2UIComponent> components,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF141838), // Solid standout dark background
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: accentColor.withOpacity(0.6),
+          width: 1.4,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.65),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: accentColor.withOpacity(0.20),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: accentColor),
+              const SizedBox(width: 6),
+              Text(
+                title,
+                style: TextStyle(
+                  color: accentColor,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (int i = 0; i < components.length; i++) ...[
+            if (i > 0)
+              Divider(
+                color: accentColor.withOpacity(0.25),
+                height: 20,
+                thickness: 1,
+              ),
+            MovieCardWidget(
+              component: components[i],
+              onAction: _handleA2UIAction,
+              isNested: true,
+            ),
+          ],
+        ],
       ),
     );
   }

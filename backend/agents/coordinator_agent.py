@@ -460,15 +460,25 @@ class OutingCoordinatorService:
                 payment_method="Google Pay",
                 session_state=session_state
             )
+            # A film is considered watched when a ticket has been purchased for it
+            if booking_result.get("booking") and booking_result["booking"].get("movie_title"):
+                movie_title = booking_result["booking"]["movie_title"]
+                cinema_name = booking_result["booking"].get("cinema", "Metropolis Cinema IMAX")
+                add_movie_to_seen_history(session_state, movie_title=movie_title, cinema=cinema_name)
+
             response = A2UIMessage(
                 session_id=session_id,
                 agent="BookingAgent",
                 text=booking_result["text"],
                 components=booking_result["components"],
                 quick_replies=[
-                    A2UIQuickReply(label="Add to Calendar", action="SEND_CALENDAR_INVITE", payload={"booking": booking_result.get("booking")})
+                    A2UIQuickReply(label="Add to Calendar", action="SEND_CALENDAR_INVITE", payload={"booking": booking_result.get("booking")}),
+                    A2UIQuickReply(label="My Cinema", action="VIEW_HISTORY", payload={})
                 ],
-                state_updates={"active_booking": session_state.get("active_booking")}
+                state_updates={
+                    "active_booking": session_state.get("active_booking"),
+                    "seen_movies": session_state.get("seen_movies", [])
+                }
             )
 
         elif action == "SEND_CALENDAR_INVITE":

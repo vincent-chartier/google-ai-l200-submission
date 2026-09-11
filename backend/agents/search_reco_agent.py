@@ -117,13 +117,15 @@ class SearchRecoService:
 
         components = []
         rec_titles = []
-        for _, match_reason, movie in selected:
+        for idx, (_, match_reason, movie) in enumerate(selected):
             # Look up showtimes for this movie
             showtimes = ["16:30", "19:30", "22:15"]
+            category = "on_show" if idx == 0 else "suggested"
             cmp = build_movie_card_component(
                 movie=movie,
                 taste_match_reason=match_reason,
-                showtimes=showtimes
+                showtimes=showtimes,
+                category=category
             )
             components.append(cmp)
             rec_titles.append(movie["title"])
