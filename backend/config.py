@@ -21,8 +21,13 @@ MODEL_ROUTING_CONFIG = {
     "search_reco_deep": os.environ.get("MODEL_SEARCH_RECO_DEEP", "gemini-2.5-pro"),
     "search_reco_fast": os.environ.get("MODEL_SEARCH_RECO_FAST", "gemini-2.5-flash"),
     "booking": os.environ.get("MODEL_BOOKING", "gemini-2.5-flash"),
-    "housekeeping": os.environ.get("MODEL_HOUSEKEEPING", "gemini-2.0-flash-lite"),
+    "housekeeping": os.environ.get("MODEL_HOUSEKEEPING", "gemini-2.5-flash"),
 }
 
 APP_PORT = int(os.environ.get("PORT", "8080"))
 APP_HOST = os.environ.get("HOST", "0.0.0.0")
+
+# Persistent SQLite Database Configuration
+DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).resolve().parent.parent / "data"))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+DATABASE_PATH = os.environ.get("DATABASE_PATH", str(DATA_DIR / "cinema_sessions.db"))

@@ -4,7 +4,7 @@ Serves A2UI protocol responses, processes interactive actions,
 and connects the Flutter frontend to the Python Google ADK Multi-Agent system.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Dict, Any, Optional
@@ -98,7 +98,7 @@ async def get_telemetry():
 
 
 @app.post("/api/v1/agent/chat", response_model=A2UIMessage)
-async def chat_with_agents(req: ChatRequest):
+async def chat_with_agents(req: ChatRequest, background_tasks: BackgroundTasks):
     """Conversational endpoint returning A2UI protocol messages."""
     try:
         response = await coordinator.handle_user_message(
@@ -111,7 +111,7 @@ async def chat_with_agents(req: ChatRequest):
 
 
 @app.post("/api/v1/a2ui/action", response_model=A2UIMessage)
-async def handle_a2ui_widget_action(req: ActionRequest):
+async def handle_a2ui_widget_action(req: ActionRequest, background_tasks: BackgroundTasks):
     """Processes interactive widget actions from Flutter and returns new A2UI UI."""
     try:
         response = await coordinator.handle_a2ui_action(
@@ -133,32 +133,34 @@ async def get_session_state(session_id: str):
 
 @app.post("/api/v1/user/favorites")
 async def add_favorite_movie(req: FavoriteRequest):
-    """Adds a favorite movie directly to session memory."""
+    """Adds a favorite movie directly to session memory and persistent database."""
     state = coordinator.get_or_create_session(req.session_id)
     entry = coordinator.housekeeping_service.add_favorite(
         movie_title=req.movie_title,
         genre=req.genre,
         session_state=state
     )
+    await coordinator.db.save_session(req.session_id, state)
     return {"success": True, "entry": entry, "state": state}
 
 
 @app.post("/api/v1/user/seen")
 async def add_seen_movie(req: SeenRequest):
-    """Adds a watched movie directly to session memory."""
+    """Adds a watched movie directly to session memory and persistent database."""
     state = coordinator.get_or_create_session(req.session_id)
     entry = coordinator.housekeeping_service.record_watched_movie(
         movie_title=req.movie_title,
         session_state=state,
         user_score=req.user_score
     )
+    await coordinator.db.save_session(req.session_id, state)
     return {"success": True, "entry": entry, "state": state}
 
 
 @app.post("/api/v1/session/compact")
-async def compact_session_history(req: CompactRequest):
+async def compact_session_history(req: CompactRequest, background_tasks: BackgroundTasks):
     """Triggers dialogue history compaction to prune context bloat."""
-    res = coordinator.compact_session_history(
+    res = await coordinator.compact_session_history_async(
         session_id=req.session_id,
         max_recent_turns=req.max_recent_turns,
         token_threshold=req.token_threshold
