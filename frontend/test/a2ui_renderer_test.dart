@@ -12,9 +12,7 @@ void main() {
       type: 'movie_card',
       props: {
         'title': 'Dune: Part Two',
-        'runtime': '166 min',
-        'imdb_rating': 8.6,
-        'taste_match_reason': 'Matches Interstellar',
+        'location': 'Metropolis Cinema IMAX • 450 7th Ave',
         'showtimes': ['19:30'],
       },
       actions: [
@@ -38,10 +36,14 @@ void main() {
     );
 
     expect(find.text('Dune: Part Two'), findsOneWidget);
-    expect(find.text('Matches Interstellar'), findsOneWidget);
-    expect(find.text('Book Now'), findsOneWidget);
+    expect(find.text('Metropolis Cinema IMAX • 450 7th Ave'), findsOneWidget);
+    expect(find.text('19:30'), findsOneWidget);
 
-    await tester.tap(find.text('Book Now'));
+    // Verify extra fields and action buttons are not rendered
+    expect(find.text('Book Now'), findsNothing);
+    expect(find.text('Matches Interstellar'), findsNothing);
+
+    await tester.tap(find.text('19:30'));
     await tester.pump();
     expect(triggeredAction?.action, 'SELECT_SHOWTIME');
   });

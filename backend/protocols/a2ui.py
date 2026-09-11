@@ -43,9 +43,16 @@ def build_movie_card_component(
     showtimes: List[str] = None
 ) -> A2UIComponent:
     """Builds an A2UI movie card component."""
+    theater_name = movie.get("theater", "Metropolis Cinema IMAX")
+    theater_loc = movie.get("location", "450 7th Ave, Downtown")
+    full_location = f"{theater_name} • {theater_loc}" if theater_name not in theater_loc else theater_loc
+
     props = {
         "movie_id": movie.get("id", movie.get("title", "")),
         "title": movie.get("title", "Unknown Title"),
+        "theater": theater_name,
+        "location": full_location,
+        "theater_location": full_location,
         "genres": movie.get("genres", []),
         "year": movie.get("year", 2024),
         "runtime": movie.get("runtime", "120 min"),

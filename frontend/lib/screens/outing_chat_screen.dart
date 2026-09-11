@@ -139,97 +139,85 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        top: false,
-        bottom: false,
-        child: Column(
-          children: [
-            // Full width header with Pulp Fiction image (no titles, no subtitles)
-            _buildPulpFictionHeader(),
-
-            // Search bar moved to the top, directly after pictured header
-            _buildTopSearchBar(),
-
-            // Quick replies below search bar
-            if (_quickReplies.isNotEmpty) _buildQuickReplies(),
-
-            if (_isLoading)
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: CinemaTheme.goldAccent),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '$_activeAgent is planning your outing...',
-                      style: const TextStyle(color: CinemaTheme.textSecondary, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-
-            // Chat & A2UI Stream
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                itemCount: _messages.length,
-                itemBuilder: (context, index) {
-                  final entry = _messages[index];
-                  if (entry.isUser) {
-                    return _buildUserBubble(entry.text);
-                  } else {
-                    return _buildAgentBubble(entry);
-                  }
+      backgroundColor: CinemaTheme.darkBackground,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Background Image with transparency to preserve foreground readability
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.18,
+              child: Image.asset(
+                'assets/images/pulp_fiction.jpg',
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+                errorBuilder: (context, error, stackTrace) {
+                  return Image.network(
+                    'https://image.tmdb.org/t/p/w780/suaEOtk1N1sgg2MTM7oZd2cfVp3.jpg',
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                  );
                 },
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPulpFictionHeader() {
-    return SizedBox(
-      width: double.infinity,
-      height: 190,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset(
-            'assets/images/pulp_fiction.jpg',
-            fit: BoxFit.cover,
-            width: double.infinity,
-            errorBuilder: (context, error, stackTrace) {
-              return Image.network(
-                'https://image.tmdb.org/t/p/w780/suaEOtk1N1sgg2MTM7oZd2cfVp3.jpg',
-                fit: BoxFit.cover,
-                width: double.infinity,
-              );
-            },
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: 35,
+
+          // Gradient tint overlay for high contrast readability
+          Positioned.fill(
             child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    CinemaTheme.darkBackground.withOpacity(0.85),
-                  ],
+              color: CinemaTheme.darkBackground.withOpacity(0.55),
+            ),
+          ),
+
+          // Foreground UI (Top search bar, quick replies, messages)
+          SafeArea(
+            child: Column(
+              children: [
+                // Top search bar without header
+                _buildTopSearchBar(),
+
+                // Quick replies below search bar
+                if (_quickReplies.isNotEmpty) _buildQuickReplies(),
+
+                if (_isLoading)
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: CinemaTheme.goldAccent),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '$_activeAgent is planning your outing...',
+                          style: const TextStyle(color: CinemaTheme.textSecondary, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Chat & A2UI Stream
+                Expanded(
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final entry = _messages[index];
+                      if (entry.isUser) {
+                        return _buildUserBubble(entry.text);
+                      } else {
+                        return _buildAgentBubble(entry);
+                      }
+                    },
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ],
