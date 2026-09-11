@@ -1,10 +1,21 @@
-"""Custom functions for handling cinema seat selection and ticket transactions."""
-
 import uuid
 import time
 from datetime import datetime
+from typing import Optional
 
-# In-memory storage for active reservations and transactions
+from backend.state.database import DatabaseManager
+
+# Singleton database instance for persistent transactions
+_DB_INSTANCE: Optional[DatabaseManager] = None
+
+def get_booking_db() -> DatabaseManager:
+    """Returns persistent SQLite DatabaseManager instance."""
+    global _DB_INSTANCE
+    if _DB_INSTANCE is None:
+        _DB_INSTANCE = DatabaseManager()
+    return _DB_INSTANCE
+
+# In-memory storage / cache for fast access
 ACTIVE_RESERVATIONS = {}
 CONFIRMED_BOOKINGS = {}
 
@@ -66,6 +77,13 @@ def get_seat_availability(showtime_id: str) -> dict:
     })
     
     occupied = set(OCCUPIED_SEATS_MAP.get(showtime_id, ["C3", "C4", "D4"]))
+    # Add seats from persistent SQLite database
+    try:
+        db_occupied = get_booking_db().get_occupied_seats_sync(showtime_id)
+        occupied.update(db_occupied)
+    except Exception:
+        pass
+
     # Also include seats currently locked in active reservations
     for res in ACTIVE_RESERVATIONS.values():
         if res.get("showtime_id") == showtime_id and res.get("expires_at", 0) > time.time():
@@ -149,7 +167,12 @@ def hold_seats_reservation(showtime_id: str, seats: list[str], user_id: str = "g
         "expires_at": expires_at
     }
     
+    # Store in memory cache and persistent SQLite database
     ACTIVE_RESERVATIONS[token] = reservation_data
+    try:
+        get_booking_db().save_reservation_sync(reservation_data)
+    except Exception:
+        pass
     
     return {
         "success": True,
@@ -180,10 +203,21 @@ def process_ticket_payment(
     """
     res = ACTIVE_RESERVATIONS.get(reservation_token)
     if not res:
+        try:
+            res = get_booking_db().get_reservation_sync(reservation_token)
+        except Exception:
+            res = None
+
+    if not res:
         return {"success": False, "error": "Invalid or expired reservation hold token."}
         
     if time.time() > res.get("expires_at", 0):
-        del ACTIVE_RESERVATIONS[reservation_token]
+        if reservation_token in ACTIVE_RESERVATIONS:
+            del ACTIVE_RESERVATIONS[reservation_token]
+        try:
+            get_booking_db().delete_reservation_sync(reservation_token)
+        except Exception:
+            pass
         return {"success": False, "error": "Reservation hold token has expired. Please re-select your seats."}
         
     booking_id = f"BK-{uuid.uuid4().hex[:6].upper()}"
@@ -193,6 +227,7 @@ def process_ticket_payment(
     booking_record = {
         "success": True,
         "booking_id": booking_id,
+        "showtime_id": res["showtime_id"],
         "movie_title": res["movie_title"],
         "cinema": res["cinema"],
         "hall": res["hall"],
@@ -207,12 +242,19 @@ def process_ticket_payment(
         "status": "CONFIRMED"
     }
     
-    # Persist booking & mark seats as permanently booked
+    # Persist booking to memory cache & SQLite database
     CONFIRMED_BOOKINGS[booking_id] = booking_record
     OCCUPIED_SEATS_MAP.setdefault(res["showtime_id"], []).extend(res["seats"])
+    try:
+        get_booking_db().save_booking_sync(booking_record)
+        get_booking_db().add_occupied_seats_sync(res["showtime_id"], res["seats"], booking_id)
+        get_booking_db().delete_reservation_sync(reservation_token)
+    except Exception:
+        pass
     
-    # Remove temporary hold
-    del ACTIVE_RESERVATIONS[reservation_token]
+    # Remove temporary hold from cache
+    if reservation_token in ACTIVE_RESERVATIONS:
+        del ACTIVE_RESERVATIONS[reservation_token]
     
     return booking_record
 
@@ -228,14 +270,27 @@ def cancel_booking(booking_id: str) -> dict:
     """
     booking = CONFIRMED_BOOKINGS.get(booking_id)
     if not booking:
+        try:
+            booking = get_booking_db().get_booking_sync(booking_id)
+        except Exception:
+            booking = None
+
+    if not booking:
         return {"success": False, "error": f"Booking '{booking_id}' not found."}
         
-    # Free up seats
+    # Free up seats in memory and SQLite database
     showtime_id = booking.get("showtime_id")
     if showtime_id in OCCUPIED_SEATS_MAP:
         for seat in booking.get("seats", []):
             if seat in OCCUPIED_SEATS_MAP[showtime_id]:
                 OCCUPIED_SEATS_MAP[showtime_id].remove(seat)
+
+    try:
+        get_booking_db().update_booking_status_sync(booking_id, "CANCELLED")
+        if showtime_id:
+            get_booking_db().remove_occupied_seats_sync(showtime_id, booking.get("seats", []))
+    except Exception:
+        pass
                 
     booking["status"] = "CANCELLED"
     return {

@@ -103,7 +103,8 @@ async def chat_with_agents(req: ChatRequest, background_tasks: BackgroundTasks):
     try:
         response = await coordinator.handle_user_message(
             session_id=req.session_id,
-            user_message=req.message
+            user_message=req.message,
+            background_tasks=background_tasks
         )
         return response
     except Exception as e:
@@ -117,7 +118,8 @@ async def handle_a2ui_widget_action(req: ActionRequest, background_tasks: Backgr
         response = await coordinator.handle_a2ui_action(
             session_id=req.session_id,
             action=req.action,
-            payload=req.payload
+            payload=req.payload,
+            background_tasks=background_tasks
         )
         return response
     except Exception as e:

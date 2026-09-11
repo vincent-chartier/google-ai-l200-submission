@@ -39,6 +39,7 @@ class DatabaseManager:
                 CREATE TABLE IF NOT EXISTS sessions (
                     session_id TEXT PRIMARY KEY,
                     user_id TEXT NOT NULL,
+                    user_name TEXT DEFAULT 'Alex Morgan',
                     user_location TEXT DEFAULT 'Downtown',
                     conversation_summary TEXT DEFAULT '',
                     active_booking TEXT,
@@ -49,6 +50,12 @@ class DatabaseManager:
                     updated_at REAL NOT NULL
                 )
             """)
+            # Migration check for user_name column if table existed
+            cursor.execute("PRAGMA table_info(sessions)")
+            existing_cols = [r[1] for r in cursor.fetchall()]
+            if "user_name" not in existing_cols:
+                cursor.execute("ALTER TABLE sessions ADD COLUMN user_name TEXT DEFAULT 'Alex Morgan'")
+
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS conversation_turns (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,6 +93,51 @@ class DatabaseManager:
                     created_at REAL NOT NULL,
                     UNIQUE(session_id, title),
                     FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS reservations (
+                    token TEXT PRIMARY KEY,
+                    showtime_id TEXT NOT NULL,
+                    movie_title TEXT NOT NULL,
+                    cinema TEXT NOT NULL,
+                    hall TEXT NOT NULL,
+                    date_time TEXT NOT NULL,
+                    seats TEXT NOT NULL,
+                    subtotal REAL NOT NULL,
+                    booking_fee REAL NOT NULL,
+                    total_amount REAL NOT NULL,
+                    user_id TEXT NOT NULL,
+                    expires_at REAL NOT NULL,
+                    created_at REAL NOT NULL
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS confirmed_bookings (
+                    booking_id TEXT PRIMARY KEY,
+                    showtime_id TEXT NOT NULL,
+                    movie_title TEXT NOT NULL,
+                    cinema TEXT NOT NULL,
+                    hall TEXT NOT NULL,
+                    date_time TEXT NOT NULL,
+                    seats TEXT NOT NULL,
+                    number_of_tickets INTEGER NOT NULL,
+                    total_amount REAL NOT NULL,
+                    payment_method TEXT NOT NULL,
+                    user_name TEXT NOT NULL,
+                    qr_code_token TEXT NOT NULL,
+                    transaction_timestamp TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at REAL NOT NULL
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS occupied_seats (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    showtime_id TEXT NOT NULL,
+                    seat_code TEXT NOT NULL,
+                    booking_id TEXT,
+                    UNIQUE(showtime_id, seat_code)
                 )
             """)
             conn.commit()
@@ -138,8 +190,10 @@ class DatabaseManager:
                 for r in cursor.fetchall()
             ]
 
+            user_name = session_row["user_name"] if "user_name" in session_row.keys() and session_row["user_name"] else "Alex Morgan"
             return {
                 "user_id": session_row["user_id"],
+                "user_name": user_name,
                 "user_location": session_row["user_location"],
                 "conversation_summary": session_row["conversation_summary"] or "",
                 "active_booking": json.loads(session_row["active_booking"]) if session_row["active_booking"] else None,
@@ -162,11 +216,12 @@ class DatabaseManager:
             now = time.time()
             cursor.execute("""
                 INSERT INTO sessions (
-                    session_id, user_id, user_location, conversation_summary,
+                    session_id, user_id, user_name, user_location, conversation_summary,
                     active_booking, active_reservation, last_recommended_movies,
                     compaction_metadata, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(session_id) DO UPDATE SET
+                    user_name = excluded.user_name,
                     user_location = excluded.user_location,
                     conversation_summary = excluded.conversation_summary,
                     active_booking = excluded.active_booking,
@@ -177,6 +232,7 @@ class DatabaseManager:
             """, (
                 session_id,
                 state.get("user_id", session_id),
+                state.get("user_name", "Alex Morgan"),
                 state.get("user_location", "Downtown"),
                 state.get("conversation_summary", ""),
                 json.dumps(state.get("active_booking")) if state.get("active_booking") is not None else None,
@@ -301,3 +357,207 @@ class DatabaseManager:
     ) -> None:
         """Asynchronously updates rolling conversation summary and compaction metadata."""
         await asyncio.to_thread(self.update_summary_and_metadata_sync, session_id, summary, metadata)
+
+    # ---------------------------------------------------------
+    # Seat Reservations & Booking Transactions Persistence
+    # ---------------------------------------------------------
+
+    def save_reservation_sync(self, res: Dict[str, Any]) -> None:
+        """Persists a temporary seat reservation hold to SQLite."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO reservations (
+                    token, showtime_id, movie_title, cinema, hall, date_time,
+                    seats, subtotal, booking_fee, total_amount, user_id, expires_at, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(token) DO UPDATE SET
+                    seats = excluded.seats,
+                    total_amount = excluded.total_amount,
+                    expires_at = excluded.expires_at
+            """, (
+                res["token"],
+                res["showtime_id"],
+                res["movie_title"],
+                res["cinema"],
+                res["hall"],
+                res["date_time"],
+                json.dumps(res.get("seats", [])),
+                res.get("subtotal", 0.0),
+                res.get("booking_fee", 0.0),
+                res.get("total_amount", 0.0),
+                res.get("user_id", "guest_user"),
+                res.get("expires_at", time.time() + 600),
+                time.time()
+            ))
+            conn.commit()
+
+    async def save_reservation(self, res: Dict[str, Any]) -> None:
+        """Asynchronously persists a temporary seat reservation hold to SQLite."""
+        await asyncio.to_thread(self.save_reservation_sync, res)
+
+    def get_reservation_sync(self, token: str) -> Optional[Dict[str, Any]]:
+        """Retrieves a reservation hold by token from SQLite."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM reservations WHERE token = ?", (token,))
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return {
+                "token": row["token"],
+                "showtime_id": row["showtime_id"],
+                "movie_title": row["movie_title"],
+                "cinema": row["cinema"],
+                "hall": row["hall"],
+                "date_time": row["date_time"],
+                "seats": json.loads(row["seats"]) if row["seats"] else [],
+                "subtotal": row["subtotal"],
+                "booking_fee": row["booking_fee"],
+                "total_amount": row["total_amount"],
+                "user_id": row["user_id"],
+                "expires_at": row["expires_at"]
+            }
+
+    async def get_reservation(self, token: str) -> Optional[Dict[str, Any]]:
+        """Asynchronously retrieves a reservation hold by token from SQLite."""
+        return await asyncio.to_thread(self.get_reservation_sync, token)
+
+    def delete_reservation_sync(self, token: str) -> None:
+        """Deletes an expired or fulfilled reservation hold from SQLite."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM reservations WHERE token = ?", (token,))
+            conn.commit()
+
+    async def delete_reservation(self, token: str) -> None:
+        """Asynchronously deletes an expired or fulfilled reservation hold from SQLite."""
+        await asyncio.to_thread(self.delete_reservation_sync, token)
+
+    def save_booking_sync(self, booking: Dict[str, Any]) -> None:
+        """Persists a confirmed ticket booking record to SQLite."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO confirmed_bookings (
+                    booking_id, showtime_id, movie_title, cinema, hall, date_time,
+                    seats, number_of_tickets, total_amount, payment_method, user_name,
+                    qr_code_token, transaction_timestamp, status, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(booking_id) DO UPDATE SET
+                    status = excluded.status
+            """, (
+                booking["booking_id"],
+                booking.get("showtime_id", "SH-DUNE-1930"),
+                booking["movie_title"],
+                booking["cinema"],
+                booking["hall"],
+                booking["date_time"],
+                json.dumps(booking.get("seats", [])),
+                booking.get("number_of_tickets", len(booking.get("seats", []))),
+                booking.get("total_amount", 0.0),
+                booking.get("payment_method", "Google Pay"),
+                booking.get("user_name", "Alex Morgan"),
+                booking.get("qr_code_token", ""),
+                booking.get("transaction_timestamp", ""),
+                booking.get("status", "CONFIRMED"),
+                time.time()
+            ))
+            conn.commit()
+
+    async def save_booking(self, booking: Dict[str, Any]) -> None:
+        """Asynchronously persists a confirmed ticket booking record to SQLite."""
+        await asyncio.to_thread(self.save_booking_sync, booking)
+
+    def get_booking_sync(self, booking_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieves a confirmed booking record from SQLite."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM confirmed_bookings WHERE booking_id = ?", (booking_id,))
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return {
+                "booking_id": row["booking_id"],
+                "showtime_id": row["showtime_id"],
+                "movie_title": row["movie_title"],
+                "cinema": row["cinema"],
+                "hall": row["hall"],
+                "date_time": row["date_time"],
+                "seats": json.loads(row["seats"]) if row["seats"] else [],
+                "number_of_tickets": row["number_of_tickets"],
+                "total_amount": row["total_amount"],
+                "payment_method": row["payment_method"],
+                "user_name": row["user_name"],
+                "qr_code_token": row["qr_code_token"],
+                "transaction_timestamp": row["transaction_timestamp"],
+                "status": row["status"]
+            }
+
+    async def get_booking(self, booking_id: str) -> Optional[Dict[str, Any]]:
+        """Asynchronously retrieves a confirmed booking record from SQLite."""
+        return await asyncio.to_thread(self.get_booking_sync, booking_id)
+
+    def update_booking_status_sync(self, booking_id: str, status: str) -> None:
+        """Updates the status of a booking in SQLite (e.g. CANCELLED)."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE confirmed_bookings SET status = ? WHERE booking_id = ?", (status, booking_id))
+            conn.commit()
+
+    async def update_booking_status(self, booking_id: str, status: str) -> None:
+        """Asynchronously updates the status of a booking in SQLite."""
+        await asyncio.to_thread(self.update_booking_status_sync, booking_id, status)
+
+    def get_occupied_seats_sync(self, showtime_id: str) -> List[str]:
+        """Fetches all permanently occupied seats for a showtime from SQLite."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT seat_code FROM occupied_seats WHERE showtime_id = ?", (showtime_id,))
+            return [r["seat_code"] for r in cursor.fetchall()]
+
+    async def get_occupied_seats(self, showtime_id: str) -> List[str]:
+        """Asynchronously fetches all permanently occupied seats for a showtime from SQLite."""
+        return await asyncio.to_thread(self.get_occupied_seats_sync, showtime_id)
+
+    def add_occupied_seats_sync(
+        self,
+        showtime_id: str,
+        seats: List[str],
+        booking_id: Optional[str] = None
+    ) -> None:
+        """Records newly occupied seats for a showtime in SQLite."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            for s in seats:
+                cursor.execute("""
+                    INSERT INTO occupied_seats (showtime_id, seat_code, booking_id)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(showtime_id, seat_code) DO NOTHING
+                """, (showtime_id, s, booking_id))
+            conn.commit()
+
+    async def add_occupied_seats(
+        self,
+        showtime_id: str,
+        seats: List[str],
+        booking_id: Optional[str] = None
+    ) -> None:
+        """Asynchronously records newly occupied seats for a showtime in SQLite."""
+        await asyncio.to_thread(self.add_occupied_seats_sync, showtime_id, seats, booking_id)
+
+    def remove_occupied_seats_sync(self, showtime_id: str, seats: List[str]) -> None:
+        """Removes occupied seats for a cancelled booking from SQLite."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            for s in seats:
+                cursor.execute(
+                    "DELETE FROM occupied_seats WHERE showtime_id = ? AND seat_code = ?",
+                    (showtime_id, s)
+                )
+            conn.commit()
+
+    async def remove_occupied_seats(self, showtime_id: str, seats: List[str]) -> None:
+        """Asynchronously removes occupied seats for a cancelled booking from SQLite."""
+        await asyncio.to_thread(self.remove_occupied_seats_sync, showtime_id, seats)
+

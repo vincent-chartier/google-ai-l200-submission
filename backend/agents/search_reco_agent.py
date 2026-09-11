@@ -34,12 +34,14 @@ Your mission is to help users find fantastic movies currently playing in cinemas
 
 Key Responsibilities & Rules:
 1. Grounded Discovery: Always use your internet search tools (search_internet_movies, get_movie_details, get_theater_showtimes) to fetch current listings and showtimes.
-2. Memory & Taste Matching: You receive the user's favorite movies and seen movies from session state.
+2. Memory & Taste Matching: You receive the user's favorite movies, seen movies, and compacted conversation summary from session state.
    - User's Favorite Movies: {favorite_movies}
    - User's Watched/Seen Movies: {seen_movies}
+   - Compacted Conversation Summary: {conversation_summary}
 3. Never recommend a movie the user has already marked as seen.
-4. Highlight why a recommendation fits their taste profile (e.g., 'Matches your love for Interstellar and Denis Villeneuve sci-fi').
-5. Be enthusiastic, concise, and structured.
+4. Ground recommendations in both long-term favorites and context preserved across compacted conversation turns.
+5. Highlight why a recommendation fits their taste profile (e.g., 'Matches your love for Interstellar and Denis Villeneuve sci-fi').
+6. Be enthusiastic, concise, and structured.
 """
 
 def create_search_reco_agent(mcp_toolset: Optional[McpToolset] = None, model: Optional[str] = None) -> LlmAgent:
@@ -72,6 +74,7 @@ class SearchRecoService:
         """Performs movie discovery with state/memory passing and returns A2UI payload."""
         favorite_movies = session_state.get("favorite_movies", [])
         seen_movies = session_state.get("seen_movies", [])
+        conversation_summary = (session_state.get("conversation_summary") or "").lower()
         fav_titles = [m.get("title", "").lower() for m in favorite_movies]
         seen_titles = [m.get("title", "").lower() for m in seen_movies]
         
@@ -81,19 +84,19 @@ class SearchRecoService:
             if m.get("in_theaters", False) and m["title"].lower() not in seen_titles
         ]
         
-        # 2. Score candidates based on favorites similarity
+        # 2. Score candidates based on favorites similarity and conversation summary
         matched_candidates = []
         for movie in candidates:
             score = 0
             reason = ""
             
-            # Check genre overlap
+            # Check genre overlap with favorites
             fav_genres = [g.lower() for fav in favorite_movies for g in fav.get("genre", "").split("/")]
             genre_overlap = [g for g in movie["genres"] if any(g.lower() in fg for fg in fav_genres)]
             if genre_overlap:
                 score += len(genre_overlap) * 2
                 
-            # Check director / tags
+            # Check director / tags with favorites
             for fav in favorite_movies:
                 if fav.get("director") and fav["director"].lower() == movie.get("director", "").lower():
                     score += 5
@@ -102,6 +105,23 @@ class SearchRecoService:
                     score += 4
                     if not reason:
                         reason = f"Fans of your favorite '{fav['title']}' love this"
+
+            # Check context from compacted conversation summary
+            if conversation_summary:
+                for g in movie.get("genres", []):
+                    if g.lower() in conversation_summary:
+                        score += 3
+                        if not reason:
+                            reason = f"Matches your interest in {g} from our conversation"
+                if movie.get("director", "").lower() and movie["director"].lower() in conversation_summary:
+                    score += 5
+                    if not reason:
+                        reason = f"Directed by {movie['director']}, mentioned in our previous discussion"
+                for tag in movie.get("similarity_tags", []):
+                    if tag.lower() in conversation_summary:
+                        score += 3
+                        if not reason:
+                            reason = f"Matches themes discussed in our conversation"
 
             if not reason and genre_overlap:
                 reason = f"Matches your passion for {', '.join(genre_overlap)} films"
@@ -130,11 +150,22 @@ class SearchRecoService:
             components.append(cmp)
             rec_titles.append(movie["title"])
 
-        fav_str = ", ".join([f["title"] for f in favorite_movies[:2]])
-        reply_text = (
-            f"Based on your favorite films ({fav_str}), I found top-rated screenings currently in theaters! "
-            f"I also checked your watched list so no repeat movies are included."
-        )
+        fav_str = ", ".join([f["title"] for f in favorite_movies[:2]]) if favorite_movies else ""
+        if conversation_summary:
+            reply_text = (
+                f"Recalling our earlier conversation, I found top-rated screenings tailored to your tastes! "
+                f"I also checked your watched list so no repeat movies are included."
+            )
+        elif fav_str:
+            reply_text = (
+                f"Based on your favorite films ({fav_str}), I found top-rated screenings currently in theaters! "
+                f"I also checked your watched list so no repeat movies are included."
+            )
+        else:
+            reply_text = (
+                "Here are top-rated screenings currently in theaters! "
+                "I also checked your watched list so no repeat movies are included."
+            )
 
         return {
             "text": reply_text,

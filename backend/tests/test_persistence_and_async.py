@@ -83,6 +83,7 @@ async def test_session_persistence_across_coordinator_restarts(temp_db_path):
     coordinator1 = OutingCoordinatorService(db=db)
     resp1 = await coordinator1.handle_user_message(session_id=session_id, user_message="I love Interstellar and saw Oppenheimer")
     assert resp1 is not None
+    await coordinator1.drain_memory_tasks()
 
     # Instance 2: Brand new coordinator with empty in-memory cache, connected to same DB
     coordinator2 = OutingCoordinatorService(db=db)
@@ -174,6 +175,7 @@ async def test_coordinator_async_compaction_and_api(temp_db_path):
     await coordinator.handle_user_message(session_id=session_id, user_message="What movies are playing?")
     await coordinator.handle_user_message(session_id=session_id, user_message="Show me showtimes for Dune: Part Two")
     await coordinator.handle_user_message(session_id=session_id, user_message="I love Interstellar")
+    await coordinator.drain_memory_tasks()
 
     # Call async compaction directly
     result = await coordinator.compact_session_history_async(
@@ -193,3 +195,111 @@ async def test_coordinator_async_compaction_and_api(temp_db_path):
         assert resp.status_code == 200
         data = resp.json()
         assert "compacted" in data
+
+
+def test_search_reco_utilizes_compacted_conversation_summary():
+    """Verifies that SearchRecoService actively prioritizes movies based on conversation_summary."""
+    from backend.agents.search_reco_agent import SearchRecoService
+
+    service = SearchRecoService()
+    session_state = {
+        "user_id": "test_user_summary",
+        "favorite_movies": [],
+        "seen_movies": [],
+        "conversation_summary": "Earlier context: User expressed strong interest in Denis Villeneuve, Dune, and epic sci-fi."
+    }
+
+    result = service.search_and_recommend(query="What should I watch?", session_state=session_state)
+    assert len(result["components"]) >= 1
+    assert "conversation" in result["text"].lower()
+
+    # Verify top recommended movie matches the compacted context
+    top_card = result["components"][0]
+    reason = top_card.props.get("taste_match_reason", "").lower()
+    assert "conversation" in reason or "sci-fi" in reason or "denis villeneuve" in reason
+
+
+def test_booking_persistence_across_separate_db_instances(temp_db_path):
+    """Verifies that reservations and bookings persist in SQLite across independent DB instances without in-memory dicts."""
+    db1 = DatabaseManager(temp_db_path)
+    showtime_id = "SH-DUNE-1930"
+
+    # 1. Save a reservation directly in DB instance 1
+    res_data = {
+        "token": "HLD-TEST-RECOVERY-99",
+        "showtime_id": showtime_id,
+        "movie_title": "Dune: Part Two",
+        "cinema": "Metropolis Cinema IMAX",
+        "hall": "IMAX Laser Hall",
+        "date_time": "2026-09-12 19:30",
+        "seats": ["E3", "E4"],
+        "subtotal": 36.0,
+        "booking_fee": 3.0,
+        "total_amount": 39.0,
+        "user_id": "user_recovery",
+        "expires_at": 9999999999.0
+    }
+    db1.save_reservation_sync(res_data)
+
+    # 2. Independent DB instance 2 loads reservation from SQLite
+    db2 = DatabaseManager(temp_db_path)
+    loaded_res = db2.get_reservation_sync("HLD-TEST-RECOVERY-99")
+    assert loaded_res is not None
+    assert loaded_res["token"] == "HLD-TEST-RECOVERY-99"
+    assert loaded_res["seats"] == ["E3", "E4"]
+
+    # 3. Save booking and occupied seats in DB instance 2
+    booking_data = {
+        "booking_id": "BK-TEST-RECOVERY-01",
+        "showtime_id": showtime_id,
+        "movie_title": "Dune: Part Two",
+        "cinema": "Metropolis Cinema IMAX",
+        "hall": "IMAX Laser Hall",
+        "date_time": "2026-09-12 19:30",
+        "seats": ["E3", "E4"],
+        "number_of_tickets": 2,
+        "total_amount": 39.0,
+        "payment_method": "Google Pay",
+        "user_name": "Test Guest",
+        "qr_code_token": "PASS://TEST",
+        "transaction_timestamp": "2026-09-11T12:00:00Z",
+        "status": "CONFIRMED"
+    }
+    db2.save_booking_sync(booking_data)
+    db2.add_occupied_seats_sync(showtime_id, ["E3", "E4"], "BK-TEST-RECOVERY-01")
+
+    # 4. Third independent DB instance retrieves the booking and occupied seats
+    db3 = DatabaseManager(temp_db_path)
+    loaded_booking = db3.get_booking_sync("BK-TEST-RECOVERY-01")
+    assert loaded_booking is not None
+    assert loaded_booking["movie_title"] == "Dune: Part Two"
+    assert loaded_booking["seats"] == ["E3", "E4"]
+
+    occupied = db3.get_occupied_seats_sync(showtime_id)
+    assert "E3" in occupied
+    assert "E4" in occupied
+
+
+@pytest.mark.asyncio
+async def test_non_blocking_async_memory_execution(temp_db_path):
+    """Verifies that handle_user_message returns immediately and background tasks flush turns to DB."""
+    import time
+    db = DatabaseManager(temp_db_path)
+    coordinator = OutingCoordinatorService(db=db)
+    session_id = "async_non_blocking_sess"
+
+    t0 = time.time()
+    resp = await coordinator.handle_user_message(session_id=session_id, user_message="Find me top movies")
+    duration = time.time() - t0
+
+    # User receives response promptly (sub-second)
+    assert resp is not None
+    assert duration < 1.0
+
+    # Background task set exists or has tasks running/queued
+    await coordinator.drain_memory_tasks()
+
+    # Now verify persistent SQLite DB has the turns
+    loaded = await db.load_session(session_id)
+    assert loaded is not None
+    assert len(loaded["conversation_history"]) >= 2

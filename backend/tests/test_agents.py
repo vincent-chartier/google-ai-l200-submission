@@ -38,6 +38,17 @@ async def test_coordinator_search_flow_with_state_passing():
 
 @pytest.mark.asyncio
 async def test_coordinator_seat_and_booking_flow():
+    # Clean up test seats in DB and cache to ensure test idempotency
+    from backend.tools.booking_transactions import get_booking_db, OCCUPIED_SEATS_MAP, ACTIVE_RESERVATIONS
+    get_booking_db().remove_occupied_seats_sync("SH-DUNE-1930", ["F7", "F8"])
+    if "SH-DUNE-1930" in OCCUPIED_SEATS_MAP:
+        for s in ["F7", "F8"]:
+            while s in OCCUPIED_SEATS_MAP["SH-DUNE-1930"]:
+                OCCUPIED_SEATS_MAP["SH-DUNE-1930"].remove(s)
+    for k in list(ACTIVE_RESERVATIONS.keys()):
+        if any(s in ACTIVE_RESERVATIONS[k].get("seats", []) for s in ["F7", "F8"]):
+            del ACTIVE_RESERVATIONS[k]
+
     coordinator = OutingCoordinatorService()
     session_id = "test_sess_02"
     
