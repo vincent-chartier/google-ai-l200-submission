@@ -23,3 +23,14 @@ build/
 
 # Environment
 .env
+
+# Terraform
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+!*.tfvars.example
+*.tfplan
+.terraform/
+.terraform.lock.hcl

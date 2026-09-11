@@ -138,7 +138,27 @@ google-ai-l200-submission/
 │       ├── test_a2ui.py           # A2UI protocol serialization tests
 │       ├── test_model_routing.py  # Intent & model tier routing tests
 │       ├── test_guardrails.py     # Security & transaction guardrail tests
-│       └── test_evaluations.py    # Negative constraint & telemetry tests
+│       ├── test_evaluations.py    # Negative constraint & telemetry tests
+│       └── test_terraform.py      # Terraform IaC & containerization test suite
+├── terraform/                     # Infrastructure as Code (IaC)
+│   ├── main.tf                    # Root module orchestration
+│   ├── variables.tf               # Root input variables
+│   ├── outputs.tf                 # Root infrastructure outputs
+│   ├── versions.tf                # Provider version constraints
+│   ├── terraform.tfvars.example   # Sample configuration variables
+│   ├── README.md                  # Comprehensive IaC guide
+│   ├── modules/                   # Reusable infrastructure modules
+│   │   ├── apis/                  # 14 Google Cloud APIs
+│   │   ├── iam/                   # Least-privilege Service Account & IAM
+│   │   ├── secrets/               # Secret Manager for Gemini API key
+│   │   ├── storage/               # Encrypted GCS persistence bucket
+│   │   ├── registry/              # Artifact Registry Docker repository
+│   │   ├── networking/            # Custom VPC & Serverless VPC Connector
+│   │   ├── cloud_run/             # Cloud Run v2 Multi-Agent service
+│   │   └── monitoring/            # Cloud Monitoring dashboard, alerts & DLP metric
+│   └── environments/              # Staged deployment configurations
+│       ├── dev/                   # Cost-optimized development environment
+│       └── prod/                  # High-availability production environment
 ├── frontend/
 │   ├── pubspec.yaml                # Flutter project configuration
 │   ├── lib/
@@ -158,8 +178,43 @@ google-ai-l200-submission/
 │   │       └── seen_history_screen.dart # Watched archive & memory profile
 │   └── test/
 │       └── a2ui_renderer_test.dart # Flutter widget tests
+├── Dockerfile                     # Production container image definition
+├── .dockerignore                  # Build context exclusions
+├── cloudbuild.yaml                # Cloud Build automated CI/CD pipeline
 └── README.md
 ```
+
+---
+
+## 🏗️ Infrastructure as Code (Terraform) & Cloud Deployment
+
+The application features full **Infrastructure as Code (IaC)** using **Terraform** to provision enterprise GCP resources:
+
+### Provisioned GCP Architecture:
+- **Cloud Run v2**: Serverless container runtime hosting the FastAPI multi-agent backend with startup/liveness health probes (`/api/v1/health`) and autoscaling.
+- **Artifact Registry**: Private Docker repository (`cinema-outings-{env}-repo`) for container images.
+- **Secret Manager**: Secure, encrypted storage and automatic injection of the `GEMINI_API_KEY`.
+- **Cloud Storage (GCS)**: Encrypted bucket with object versioning, public access prevention, and lifecycle retention policies for SQLite session database persistence and ticket artifacts.
+- **Least-Privilege IAM**: Dedicated Service Account (`cinema-outings-{env}-sa`) restricted strictly to Cloud DLP, Secret Manager, Vertex AI, Cloud Trace, and Cloud Logging.
+- **Cloud Monitoring & Observability**: Real-time dashboard tracking agent latency percentiles, container CPU/RAM utilization, request throughput, and a custom log metric for Cloud DLP PII sanitizations.
+- **Staged Environments**: Out-of-the-box `dev` (scaled down, zero min instances) and `prod` (warm instances, GCS volume mount, alerting) stages.
+
+### Terraform Quickstart:
+```bash
+# Navigate to the target environment (e.g. dev)
+cd terraform/environments/dev
+
+# Initialize providers and modules
+terraform init
+
+# Plan infrastructure changes
+terraform plan
+
+# Deploy infrastructure to Google Cloud
+terraform apply
+```
+
+For complete IaC details and variable documentation, see [terraform/README.md](file:///home/vchartier/google-ai-l200-submission/terraform/README.md).
 
 ---
 
@@ -170,7 +225,7 @@ google-ai-l200-submission/
 # Sourcing environment (sets GEMINI_API_KEY from ~/gemini_key.txt)
 source /home/vchartier/companion-python/set_env.sh
 
-# Run all backend unit and integration tests
+# Run all backend unit, integration, and IaC validation tests
 PYTHONPATH=. /home/vchartier/companion-python/venv/bin/pytest backend/tests/ -v
 
 # Launch backend FastAPI server
@@ -190,3 +245,4 @@ flutter test
 # Run the Flutter mobile app
 flutter run
 ```
+

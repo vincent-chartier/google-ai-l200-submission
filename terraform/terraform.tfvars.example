@@ -1,0 +1,35 @@
+# Google Cloud Project Configuration
+project_id  = "vchartier-project"
+region      = "us-central1"
+app_name    = "cinema-outings"
+environment = "dev"
+
+# Authentication & Credentials
+# Provide Gemini API key, or leave blank to populate Secret Manager manually
+gemini_api_key = "AIzaSy..."
+
+# Autoscaling & Hardware Sizing
+min_instances = 0
+max_instances = 5
+cpu_limit     = "2"
+memory_limit  = "2Gi"
+
+# Connectivity & Storage
+allow_unauthenticated    = true
+enable_gcs_volume        = false
+enable_vpc_connector     = false
+enable_monitoring_alerts = true
+
+# Strategic Tiered Gemini Models
+model_coordinator      = "gemini-2.5-flash"
+model_search_reco_deep = "gemini-2.5-pro"
+model_search_reco_fast = "gemini-2.5-flash"
+model_booking          = "gemini-2.5-flash"
+model_housekeeping     = "gemini-2.5-flash"
+
+# Common Resource Labels
+labels = {
+  application = "cinema-outings-ai"
+  managed_by  = "terraform"
+  tier        = "backend"
+}
