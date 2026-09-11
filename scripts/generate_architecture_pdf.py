@@ -1,4 +1,4 @@
-"""Generate publication-quality, tightly formatted 3-page PDF architecture blueprint."""
+"""Generate publication-quality 4-page PDF architecture blueprint with visual diagram."""
 
 import os
 from pathlib import Path
@@ -6,7 +6,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, HRFlowable
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, HRFlowable, Image
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_JUSTIFY
@@ -57,8 +57,7 @@ class NumberedCanvas(canvas.Canvas):
         self.restoreState()
 
 
-def build_pdf(filename: str):
-    # Printable area: 612 x 792. Margins: 40pt left/right, 40pt top/bottom -> width = 532pt
+def build_pdf(filename: str, diagram_image_path: str):
     doc = SimpleDocTemplate(
         filename,
         pagesize=letter,
@@ -100,11 +99,11 @@ def build_pdf(filename: str):
         "SectionH1",
         parent=styles["Heading2"],
         fontName="Helvetica-Bold",
-        fontSize=13,
-        leading=16,
+        fontSize=12.5,
+        leading=15.5,
         textColor=PRIMARY,
-        spaceBefore=8,
-        spaceAfter=4,
+        spaceBefore=7,
+        spaceAfter=3,
         keepWithNext=True,
     )
     body_style = ParagraphStyle(
@@ -112,8 +111,19 @@ def build_pdf(filename: str):
         parent=styles["Normal"],
         fontName="Helvetica",
         fontSize=8.5,
-        leading=11.5,
+        leading=12,
         textColor=SECONDARY,
+        spaceAfter=5,
+    )
+    caption_style = ParagraphStyle(
+        "CaptionStyle",
+        parent=styles["Normal"],
+        fontName="Helvetica-Oblique",
+        fontSize=7.5,
+        leading=10,
+        textColor=TEXT_MUTED,
+        alignment=TA_CENTER,
+        spaceBefore=3,
         spaceAfter=4,
     )
     table_cell = ParagraphStyle(
@@ -123,12 +133,6 @@ def build_pdf(filename: str):
         fontSize=7.8,
         leading=10.5,
         textColor=SECONDARY,
-    )
-    table_cell_bold = ParagraphStyle(
-        "TableCellBold",
-        parent=table_cell,
-        fontName="Helvetica-Bold",
-        textColor=PRIMARY,
     )
     table_header = ParagraphStyle(
         "TableHeader",
@@ -142,7 +146,7 @@ def build_pdf(filename: str):
     story = []
 
     # =========================================================================
-    # PAGE 1: TITLE, ABSTRACT & ARCHITECTURE OVERVIEW FLOWCHART
+    # PAGE 1: TITLE, EXECUTIVE SUMMARY & ARCHITECTURAL FOUNDATIONS
     # =========================================================================
     top_bar = [
         [
@@ -157,9 +161,8 @@ def build_pdf(filename: str):
 
     story.append(Paragraph("Cinema Outings AI", title_style))
     story.append(Paragraph("Multi-Agent Autonomous Architecture, A2UI Protocol & Cloud Infrastructure", subtitle_style))
-    story.append(HRFlowable(width="100%", thickness=1.5, color=ACCENT, spaceBefore=0, spaceAfter=6))
+    story.append(HRFlowable(width="100%", thickness=1.5, color=ACCENT, spaceBefore=0, spaceAfter=8))
 
-    # Metadata Grid
     meta_data = [
         [
             Paragraph("<b>Candidate / Author:</b> Vincent Chartier", table_cell),
@@ -177,97 +180,81 @@ def build_pdf(filename: str):
         ('BACKGROUND', (0,0), (-1,-1), CARD_BG),
         ('BOX', (0,0), (-1,-1), 0.5, BORDER_COLOR),
         ('INNERGRID', (0,0), (-1,-1), 0.5, BORDER_COLOR),
-        ('TOPPADDING', (0,0), (-1,-1), 3.5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 3.5),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
         ('LEFTPADDING', (0,0), (-1,-1), 6),
         ('RIGHTPADDING', (0,0), (-1,-1), 6),
     ]))
     story.append(t_meta)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 10))
 
     abstract_text = (
-        "<b>Executive Summary:</b> Cinema Outings AI is a production-grade, full-stack multi-agent platform designed "
-        "to discover cinema screenings, personalize recommendations using taste memory, guarantee transaction safety, "
-        "book tickets, and synchronize calendar invites. Built using the <b>Google Agent Development Kit (ADK)</b>, "
-        "<b>Gemini 2.5</b> strategic tiered model routing, <b>FastMCP</b> (Model Context Protocol), and Flutter's dynamic "
-        "<b>A2UI (Agent-to-UI)</b> declarative protocol, the architecture is provisioned with enterprise-grade "
+        "<b>Executive Summary:</b> Cinema Outings AI is a production-grade, full-stack multi-agent mobile and cloud "
+        "platform designed to discover cinema screenings, personalize recommendations using taste memory, guarantee "
+        "transaction safety, book tickets, and synchronize calendar invites. Built using the <b>Google Agent Development "
+        "Kit (ADK)</b>, <b>Gemini 2.5</b> strategic tiered model routing, <b>FastMCP</b> (Model Context Protocol), and "
+        "Flutter's dynamic <b>A2UI (Agent-to-UI)</b> declarative protocol, the architecture is provisioned with enterprise-grade "
         "<b>Terraform</b> Infrastructure as Code (IaC) on Google Cloud Platform."
     )
     story.append(Paragraph(abstract_text, body_style))
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 8))
 
-    story.append(Paragraph("1. System Architecture Diagram & Layer Hierarchy", h1_style))
+    story.append(Paragraph("1. Architectural Foundations & Design Principles", h1_style))
     story.append(Paragraph(
-        "The architecture is partitioned into six decoupled layers operating in continuous synchronization:", body_style
+        "The architecture is engineered around five fundamental enterprise principles:", body_style
     ))
 
-    # Architecture Flow Cards
-    diagram_cards = [
-        [
-            Paragraph("<b>1. CLIENT LAYER (Flutter Cross-Platform Mobile & Web)</b><br/>"
-                      "• Dynamic A2UI Renderer Engine (MovieCard, SeatMap, TicketPass, CalendarInvite, SeenHistory widgets)<br/>"
-                      "• AgentClient with W3C Distributed Tracing (traceparent context propagation header)", table_cell)
-        ],
-        [Paragraph("▼  <i>HTTP REST / Dynamic A2UI Declarative Protocol JSON</i>", ParagraphStyle("Arr", fontName="Helvetica-Oblique", fontSize=7, textColor=ACCENT, alignment=TA_CENTER))],
-        [
-            Paragraph("<b>2. FASTAPI GATEWAY & DISTRIBUTED OBSERVABILITY</b><br/>"
-                      "• Unified Gateway Endpoints: <code>/api/v1/agent/chat</code>, <code>/api/v1/a2ui/action</code>, <code>/api/v1/telemetry</code><br/>"
-                      "• OpenTelemetry W3C Middleware & Structured JSON Logging (Google Cloud Logging semantic format)", table_cell)
-        ],
-        [Paragraph("▼  <i>ADK Lifecycle Hooks & Security Defense Pipeline</i>", ParagraphStyle("Arr", fontName="Helvetica-Oblique", fontSize=7, textColor=ACCENT, alignment=TA_CENTER))],
-        [
-            Paragraph("<b>3. SECURITY GUARDRAILS & STRATEGIC MODEL ROUTING</b><br/>"
-                      "• <b>InputSecurityGuardrailPlugin:</b> Intercepts prompt injections, overrides, and malicious payloads<br/>"
-                      "• <b>CloudDlpInspectionService:</b> Google Cloud DLP PII sanitization (Cards, SSN, Phone, Email, Auth Tokens)<br/>"
-                      "• <b>SemanticRouter:</b> Real-time intent classification and cost-optimized tiered Gemini model routing<br/>"
-                      "• <b>Evaluation Plugins:</b> 0% duplicate watched movie enforcement, transaction state machine, cost tracking", table_cell)
-        ],
-        [Paragraph("▼  <i>Google ADK Supervisor Host Delegation</i>", ParagraphStyle("Arr", fontName="Helvetica-Oblique", fontSize=7, textColor=ACCENT, alignment=TA_CENTER))],
-        [
-            Paragraph("<b>4. MULTI-AGENT ADK CORE</b><br/>"
-                      "• <b>Outing Coordinator Agent (Supervisor/Host):</b> Coordinates memory passing and bundles A2UI payloads (<code>gemini-2.5-flash</code>)<br/>"
-                      "• <b>Search & Reco Agent:</b> Deep taste grounding (<code>gemini-2.5-pro</code>) & fast catalog search (<code>gemini-2.5-flash</code>)<br/>"
-                      "• <b>Booking Agent:</b> Zero-temperature deterministic financial & seat hold transaction executor (<code>gemini-2.5-flash</code>)<br/>"
-                      "• <b>Housekeeping Agent:</b> Watched history archive, favorites memory curation, and calendar invites (<code>gemini-2.0-flash-lite</code>)", table_cell)
-        ],
-        [Paragraph("▼  <i>External Protocol Execution & Function Invocation</i>", ParagraphStyle("Arr", fontName="Helvetica-Oblique", fontSize=7, textColor=ACCENT, alignment=TA_CENTER))],
-        [
-            Paragraph("<b>5. TOOLS & PROTOCOL INTEGRATION LAYER</b><br/>"
-                      "• <b>FastMCP Movie Search Server:</b> <code>search_cinemas</code>, <code>get_showtimes</code>, <code>get_movie_details</code>, <code>list_now_showing</code><br/>"
-                      "• <b>Booking Transactions:</b> <code>get_seat_availability</code>, <code>hold_seats_reservation</code>, <code>process_ticket_payment</code><br/>"
-                      "• <b>Calendar & Compaction:</b> RFC-5545 iCalendar (<code>.ics</code>), Google Calendar deep links, and context compaction", table_cell)
-        ],
-        [Paragraph("▼  <i>Async Non-Blocking Persistence & Google Cloud Infrastructure</i>", ParagraphStyle("Arr", fontName="Helvetica-Oblique", fontSize=7, textColor=ACCENT, alignment=TA_CENTER))],
-        [
-            Paragraph("<b>6. PERSISTENCE & GOOGLE CLOUD INFRASTRUCTURE (Terraform IaC)</b><br/>"
-                      "• <b>SQLite Database:</b> <code>cinema_sessions.db</code> with non-blocking async CRUD & active dialogue compaction<br/>"
-                      "• <b>Google Cloud Run v2:</b> Auto-scaling backend with /health probes, least-privilege IAM SA, and GCS FUSE volume<br/>"
-                      "• <b>GCP Services:</b> Artifact Registry, Secret Manager, Cloud DLP, Cloud Trace, and Cloud Monitoring Dashboard", table_cell)
-        ],
+    principles = [
+        "<b>1. Supervisor-Host Orchestration:</b> Built upon Google ADK's <code>LlmAgent</code> pattern. The Outing Coordinator Agent acts as the central host, delegating sub-tasks to specialized sub-agents while maintaining unified conversational state and session memory passing.",
+        "<b>2. Declarative Agent-to-UI (A2UI) Protocol:</b> Rather than returning raw markdown or brittle plain text, agents output typed A2UI JSON components. The Flutter client dynamically parses and renders rich interactive widgets (movie discovery carousels, 2D seat selectors, boarding pass ticket passes, and calendar invitations).",
+        "<b>3. Defense-in-Depth & Sensitive Data Protection:</b> Strict Google ADK lifecycle plugins inspect user input before agent execution. Google Cloud Sensitive Data Protection (DLP) automatically redacts payment cards, phone numbers, emails, and SSNs. Reservation safety plugins ensure zero unheld ticket charges.",
+        "<b>4. Strategic Tiered Model Routing:</b> Semantic intent classification routes each request to its cost-optimal Gemini model tier—reserving <code>gemini-2.5-pro</code> for nuanced taste reasoning, <code>gemini-2.5-flash</code> for conversational agility and deterministic booking transactions, and <code>gemini-2.0-flash-lite</code> for profile maintenance and calendar formatting.",
+        "<b>5. Fully Codified Infrastructure as Code (IaC):</b> All Google Cloud resources—including Cloud Run v2, Secret Manager, Artifact Registry, Cloud Storage FUSE volumes, Cloud Monitoring, and least-privilege IAM service accounts—are provisioned automatically via modular Terraform configurations."
     ]
-    t_diag = Table(diagram_cards, colWidths=[532])
-    t_diag.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (0,0), ACCENT_LIGHT),
-        ('BACKGROUND', (0,2), (0,2), CARD_BG),
-        ('BACKGROUND', (0,4), (0,4), ACCENT_LIGHT),
-        ('BACKGROUND', (0,6), (0,6), CARD_BG),
-        ('BACKGROUND', (0,8), (0,8), ACCENT_LIGHT),
-        ('BACKGROUND', (0,10), (0,10), CARD_BG),
-        ('BOX', (0,0), (0,0), 0.75, ACCENT),
-        ('BOX', (0,2), (0,2), 0.5, BORDER_COLOR),
-        ('BOX', (0,4), (0,4), 0.75, ACCENT),
-        ('BOX', (0,6), (0,6), 0.5, BORDER_COLOR),
-        ('BOX', (0,8), (0,8), 0.75, ACCENT),
-        ('BOX', (0,10), (0,10), 0.5, BORDER_COLOR),
-        ('TOPPADDING', (0,0), (-1,-1), 2.5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
-        ('LEFTPADDING', (0,0), (-1,-1), 6),
-        ('RIGHTPADDING', (0,0), (-1,-1), 6),
+    for p in principles:
+        story.append(Paragraph(p, body_style))
+
+    story.append(Spacer(1, 8))
+    overview_box = [
+        [
+            Paragraph("<b>Architecture Blueprint Navigation:</b> Overleaf (Page 2) features the complete graphical system "
+                      "architecture diagram depicting the six synchronized layers down to agent, tool, protocol, and cloud service "
+                      "components. Pages 3 and 4 detail agent specifications, tool signatures, security guardrails, model tiers, and Terraform IaC.", table_cell)
+        ]
+    ]
+    t_box = Table(overview_box, colWidths=[532])
+    t_box.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), ACCENT_LIGHT),
+        ('BOX', (0,0), (-1,-1), 0.75, ACCENT),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('LEFTPADDING', (0,0), (-1,-1), 8),
+        ('RIGHTPADDING', (0,0), (-1,-1), 8),
     ]))
-    story.append(t_diag)
+    story.append(t_box)
 
     # =========================================================================
-    # PAGE 2: SPECIALIZED AGENTS & TOOLS / PROTOCOLS
+    # PAGE 2: FULL-PAGE VISUAL SYSTEM ARCHITECTURE DIAGRAM
+    # =========================================================================
+    story.append(PageBreak())
+    story.append(Paragraph("Figure 1: Full-System Architecture & Component Interaction Blueprint", h1_style))
+    story.append(Paragraph(
+        "High-resolution component diagram detailing the interaction flow across Client, Gateway, Security, Multi-Agent Core, Tools & Cloud Persistence:", body_style
+    ))
+    story.append(Spacer(1, 4))
+
+    # Embed High-Resolution Diagram Image
+    # Image aspect ratio is ~1.09 (width=490, height=534)
+    story.append(Image(diagram_image_path, width=490, height=534))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(
+        "<b>Figure 1 Legend:</b> Blue: Client & ADK Agent Core  |  Purple: FastAPI Gateway & Telemetry  |  "
+        "Red: Security Guardrails & Cloud DLP  |  Green: FastMCP & Transaction Tools  |  Amber: Session State, SQLite & GCP Cloud Run v2 (Terraform).",
+        caption_style
+    ))
+
+    # =========================================================================
+    # PAGE 3: SPECIALIZED AGENTS & TOOLS / PROTOCOLS
     # =========================================================================
     story.append(PageBreak())
     story.append(Paragraph("2. Specialized Multi-Agent System Breakdown", h1_style))
@@ -376,7 +363,7 @@ def build_pdf(filename: str):
     story.append(t_tools)
 
     # =========================================================================
-    # PAGE 3: SECURITY, MODEL ROUTING, TERRAFORM & TEST VERIFICATION
+    # PAGE 4: SECURITY, MODEL ROUTING, TERRAFORM & TEST VERIFICATION
     # =========================================================================
     story.append(PageBreak())
     story.append(Paragraph("4. Security Guardrails, Cloud DLP & Observability", h1_style))
@@ -513,9 +500,11 @@ def build_pdf(filename: str):
     story.append(t_verif)
 
     doc.build(story, canvasmaker=NumberedCanvas)
-    print(f"Successfully generated 3-page PDF at: {filename}")
+    print(f"Successfully generated 4-page PDF with architecture diagram at: {filename}")
 
 
 if __name__ == "__main__":
-    out_path = Path(__file__).resolve().parent.parent / "Cinema_Outings_AI_Architecture.pdf"
-    build_pdf(str(out_path))
+    repo_root = Path(__file__).resolve().parent.parent
+    out_pdf = repo_root / "Cinema_Outings_AI_Architecture.pdf"
+    diagram_img = repo_root / "docs" / "architecture_diagram.png"
+    build_pdf(str(out_pdf), str(diagram_img))

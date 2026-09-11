@@ -1,0 +1,272 @@
+digraph CinemaOutingsArchitecture {
+  // Global Graph Configuration
+  graph [
+    rankdir=TB,
+    splines=ortho,
+    nodesep=0.4,
+    ranksep=0.45,
+    fontname="Helvetica",
+    fontsize=11,
+    bgcolor="#FFFFFF",
+    pad="0.2"
+  ];
+
+  node [
+    fontname="Helvetica",
+    fontsize=9,
+    shape=box,
+    style="rounded,filled",
+    margin="0.15,0.08",
+    penwidth=1.0
+  ];
+
+  edge [
+    fontname="Helvetica",
+    fontsize=7.5,
+    color="#475569",
+    arrowsize=0.65,
+    penwidth=1.0
+  ];
+
+  // -------------------------------------------------------------
+  // 1. CLIENT LAYER (Flutter)
+  // -------------------------------------------------------------
+  subgraph cluster_client {
+    label="1. CLIENT LAYER (Flutter Cross-Platform Mobile & Web)";
+    style="rounded,filled";
+    fillcolor="#F8FAFC";
+    color="#0284C7";
+    penwidth=1.5;
+    fontname="Helvetica-Bold";
+    fontsize=10;
+    fontcolor="#0369A1";
+
+    UI_Screens [
+      label="Flutter Chat Canvas & Seen Screens\n(OutingChatScreen, SeenHistoryScreen)",
+      fillcolor="#E0F2FE",
+      color="#0284C7"
+    ];
+
+    UI_A2UI [
+      label="A2UI Declarative Renderer Engine\n(MovieCard, SeatMap, TicketPass, CalendarInvite, SeenHistory)",
+      fillcolor="#BAE6FD",
+      color="#0284C7",
+      fontname="Helvetica-Bold"
+    ];
+
+    UI_Client [
+      label="AgentClient (HTTP REST)\n[Injects W3C traceparent headers]",
+      fillcolor="#E0F2FE",
+      color="#0284C7"
+    ];
+
+    UI_Screens -> UI_A2UI -> UI_Client;
+  }
+
+  // -------------------------------------------------------------
+  // 2. GATEWAY & TELEMETRY
+  // -------------------------------------------------------------
+  subgraph cluster_gateway {
+    label="2. FASTAPI GATEWAY & DISTRIBUTED OBSERVABILITY";
+    style="rounded,filled";
+    fillcolor="#F8FAFC";
+    color="#4F46E5";
+    penwidth=1.5;
+    fontname="Helvetica-Bold";
+    fontsize=10;
+    fontcolor="#4338CA";
+
+    GW_Endpoints [
+      label="FastAPI Router Endpoints\n(/api/v1/agent/chat, /a2ui/action, /user/favorites, /telemetry)",
+      fillcolor="#EEF2FF",
+      color="#4F46E5",
+      fontname="Helvetica-Bold"
+    ];
+
+    GW_Otel [
+      label="OpenTelemetry Middleware\n(W3C distributed trace context)",
+      fillcolor="#E0E7FF",
+      color="#4F46E5"
+    ];
+
+    GW_Logs [
+      label="Structured JSON Logging\n(GCP Logging semantic format)",
+      fillcolor="#E0E7FF",
+      color="#4F46E5"
+    ];
+
+    GW_Endpoints -> GW_Otel;
+    GW_Endpoints -> GW_Logs [style=dotted];
+  }
+
+  UI_Client -> GW_Endpoints [label="A2UI Protocol (REST/JSON)", color="#0284C7", penwidth=1.2];
+
+  // -------------------------------------------------------------
+  // 3. SECURITY & ROUTING
+  // -------------------------------------------------------------
+  subgraph cluster_security {
+    label="3. SECURITY GUARDRAILS, CLOUD DLP & SEMANTIC ROUTING";
+    style="rounded,filled";
+    fillcolor="#F8FAFC";
+    color="#DC2626";
+    penwidth=1.5;
+    fontname="Helvetica-Bold";
+    fontsize=10;
+    fontcolor="#B91C1C";
+
+    SEC_Input [
+      label="InputSecurityGuardrailPlugin\n(Prompt injection & jailbreak interceptor)",
+      fillcolor="#FEE2E2",
+      color="#DC2626"
+    ];
+
+    SEC_DLP [
+      label="CloudDlpInspectionService\n(Redacts Payment Cards, SSN, Phone, Email, Auth Tokens)",
+      fillcolor="#FECACA",
+      color="#DC2626",
+      fontname="Helvetica-Bold"
+    ];
+
+    SEC_Router [
+      label="SemanticRouter (Tiered Model Optimizer)\n(Directs intents to gemini-2.5-pro, flash, or flash-lite)",
+      fillcolor="#FEE2E2",
+      color="#DC2626"
+    ];
+
+    SEC_Evals [
+      label="ADK Evaluation Plugins\n(0% duplicate seen movies, tool sequences, cost telemetry)",
+      fillcolor="#FEE2E2",
+      color="#DC2626"
+    ];
+
+    SEC_Input -> SEC_DLP -> SEC_Router;
+    SEC_Router -> SEC_Evals [style=dotted];
+  }
+
+  GW_Otel -> SEC_Input [label="Pre-run inspection", color="#4F46E5"];
+
+  // -------------------------------------------------------------
+  // 4. MULTI-AGENT ADK CORE
+  // -------------------------------------------------------------
+  subgraph cluster_agents {
+    label="4. MULTI-AGENT SYSTEM (Google ADK Core)";
+    style="rounded,filled";
+    fillcolor="#F8FAFC";
+    color="#2563EB";
+    penwidth=1.5;
+    fontname="Helvetica-Bold";
+    fontsize=10;
+    fontcolor="#1D4ED8";
+
+    AGENT_Coord [
+      label="1. Outing Coordinator Agent (Supervisor/Host)\n[gemini-2.5-flash] Orchestrates dialogue, memory passing & A2UI widgets",
+      fillcolor="#DBEAFE",
+      color="#2563EB",
+      fontname="Helvetica-Bold"
+    ];
+
+    AGENT_Reco [
+      label="2. Search & Reco Agent\n[gemini-2.5-pro / flash]\nTaste matching & screening discovery",
+      fillcolor="#EFF6FF",
+      color="#2563EB"
+    ];
+
+    AGENT_Book [
+      label="3. Booking Agent\n[gemini-2.5-flash (T=0)]\nDeterministic seat holds & payments",
+      fillcolor="#EFF6FF",
+      color="#2563EB"
+    ];
+
+    AGENT_House [
+      label="4. Housekeeping Agent\n[gemini-2.0-flash-lite / flash]\nWatch archive, .ics calendar, compaction",
+      fillcolor="#EFF6FF",
+      color="#2563EB"
+    ];
+
+    AGENT_Coord -> AGENT_Reco [label="Delegates Discovery"];
+    AGENT_Coord -> AGENT_Book [label="Delegates Ticketing"];
+    AGENT_Coord -> AGENT_House [label="Delegates Archive/Calendar"];
+  }
+
+  SEC_Router -> AGENT_Coord [label="Dispatched query", color="#DC2626", penwidth=1.2];
+
+  // -------------------------------------------------------------
+  // 5. TOOLS & PROTOCOLS
+  // -------------------------------------------------------------
+  subgraph cluster_tools {
+    label="5. TOOLS & PROTOCOL INTEGRATION LAYER";
+    style="rounded,filled";
+    fillcolor="#F8FAFC";
+    color="#059669";
+    penwidth=1.5;
+    fontname="Helvetica-Bold";
+    fontsize=10;
+    fontcolor="#047857";
+
+    TOOL_MCP [
+      label="FastMCP Movie Search Server\n(search_cinemas, get_showtimes,\nget_movie_details, list_now_showing)",
+      fillcolor="#D1FAE5",
+      color="#059669",
+      fontname="Helvetica-Bold"
+    ];
+
+    TOOL_Booking [
+      label="Booking Custom Transactions\n(get_seat_availability, hold_seats_reservation,\nprocess_ticket_payment, cancel_booking)",
+      fillcolor="#D1FAE5",
+      color="#059669",
+      fontname="Helvetica-Bold"
+    ];
+
+    TOOL_Calendar [
+      label="Calendar & Compaction Engines\n(generate_ics_calendar, create_google_calendar_link,\ncompact_conversation_history)",
+      fillcolor="#D1FAE5",
+      color="#059669",
+      fontname="Helvetica-Bold"
+    ];
+  }
+
+  AGENT_Reco -> TOOL_MCP [label="FastMCP stdio", color="#059669"];
+  AGENT_Book -> TOOL_Booking [label="Custom Transactions", color="#059669"];
+  AGENT_House -> TOOL_Calendar [label="iCalendar & Compaction", color="#059669"];
+
+  // -------------------------------------------------------------
+  // 6. PERSISTENCE & GOOGLE CLOUD
+  // -------------------------------------------------------------
+  subgraph cluster_cloud {
+    label="6. STATE PERSISTENCE & GOOGLE CLOUD INFRASTRUCTURE (Terraform)";
+    style="rounded,filled";
+    fillcolor="#F8FAFC";
+    color="#D97706";
+    penwidth=1.5;
+    fontname="Helvetica-Bold";
+    fontsize=10;
+    fontcolor="#B45309";
+
+    STATE_Memory [
+      label="Shared Session State Memory\n(favorite_movies, seen_movies, active_reservation, active_booking)",
+      fillcolor="#FEF3C7",
+      color="#D97706"
+    ];
+
+    STATE_Db [
+      label="Persistent SQLite Database (cinema_sessions.db)\nAsync CRUD via asyncio.to_thread & active compaction",
+      fillcolor="#FDE68A",
+      color="#D97706",
+      fontname="Helvetica-Bold"
+    ];
+
+    GCP_Cloud [
+      label="Google Cloud Platform (Provisioned via Terraform)\n• Cloud Run v2 (cinema-outings-backend with /health probes)\n• Secret Manager (GEMINI_API_KEY) & Artifact Registry (Docker repo)\n• Cloud DLP API, Cloud Trace & Cloud Monitoring Observability Dashboard",
+      fillcolor="#FEF3C7",
+      color="#D97706"
+    ];
+
+    STATE_Memory -> STATE_Db [label="Async sync"];
+    STATE_Db -> GCP_Cloud [label="Cloud Storage FUSE Mount", style=dashed];
+  }
+
+  AGENT_Coord -> STATE_Memory [label="Memory Passing", dir=both, color="#D97706", penwidth=1.2];
+  TOOL_Booking -> STATE_Memory [style=dashed, color="#D97706"];
+  TOOL_Calendar -> STATE_Memory [style=dashed, color="#D97706"];
+  SEC_DLP -> GCP_Cloud [style=dotted, label="Cloud DLP API", color="#DC2626"];
+}
