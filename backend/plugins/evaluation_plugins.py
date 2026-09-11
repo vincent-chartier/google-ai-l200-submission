@@ -199,3 +199,36 @@ class ContextCompactionEvaluationPlugin(BasePlugin):
             "preservation_rate": (len(preserved) / len(expected_entities)) if expected_entities else 1.0,
             "passed": len(missing) == 0
         }
+
+
+class IntentOutcomeEvaluationPlugin(BasePlugin):
+    """Evaluates the alignment between detected user intent and actual agent outcomes."""
+
+    def __init__(self):
+        super().__init__(name="intent_outcome_evaluation_plugin")
+        from backend.telemetry.intent_outcome import get_intent_outcome_tracker
+        self.tracker = get_intent_outcome_tracker()
+
+    def evaluate_intent_outcome(
+        self,
+        session_id: str,
+        intent: str,
+        model_tier: str,
+        response: Any,
+        latency_ms: float,
+        error: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Runs explicit intent vs outcome evaluation and records structured metrics."""
+        result = self.tracker.evaluate_and_log(
+            session_id=session_id,
+            intent=intent,
+            model_tier=model_tier,
+            response=response,
+            latency_ms=latency_ms,
+            error=error
+        )
+        return result.to_dict()
+
+    def get_summary(self) -> Dict[str, Any]:
+        """Returns aggregate intent vs outcome performance statistics."""
+        return self.tracker.get_metrics_summary()

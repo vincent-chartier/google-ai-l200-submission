@@ -171,10 +171,9 @@ async def test_coordinator_async_compaction_and_api(temp_db_path):
     coordinator = OutingCoordinatorService(db=DatabaseManager(temp_db_path))
     session_id = "coordinator_async_api_session"
 
-    # Multi-turn interaction
+    # Multi-turn interaction (2 user turns = 4 total turns, under auto-trigger threshold)
     await coordinator.handle_user_message(session_id=session_id, user_message="What movies are playing?")
     await coordinator.handle_user_message(session_id=session_id, user_message="Show me showtimes for Dune: Part Two")
-    await coordinator.handle_user_message(session_id=session_id, user_message="I love Interstellar")
     await coordinator.drain_memory_tasks()
 
     # Call async compaction directly
@@ -184,6 +183,10 @@ async def test_coordinator_async_compaction_and_api(temp_db_path):
         token_threshold=10
     )
     assert result["compacted"] is True
+
+    # Add further turn to compact via API
+    await coordinator.handle_user_message(session_id=session_id, user_message="I love Interstellar")
+    await coordinator.drain_memory_tasks()
 
     # Call via FastAPI HTTP endpoint
     transport = ASGITransport(app=app)

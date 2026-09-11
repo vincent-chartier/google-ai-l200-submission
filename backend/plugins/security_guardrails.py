@@ -38,9 +38,14 @@ class InputSecurityGuardrailPlugin(BasePlugin):
 
     def __init__(self):
         super().__init__(name="input_security_guardrail")
+        from backend.security.dlp_service import get_dlp_service
+        self.dlp_service = get_dlp_service()
+        self.inspections_count: int = 0
+        self.sensitive_findings_count: int = 0
+        self.detected_info_types: List[str] = []
 
     def validate_and_sanitize(self, user_message: str) -> str:
-        """Inspects user input for injection threats, redacts PII, and returns clean text."""
+        """Inspects user input for injection threats, redacts PII via Cloud DLP, and returns clean text."""
         # 1. Prompt Injection Detection
         for pattern in self.INJECTION_PATTERNS:
             if pattern.search(user_message):
@@ -50,10 +55,27 @@ class InputSecurityGuardrailPlugin(BasePlugin):
                     details={"matched_pattern": pattern.pattern}
                 )
 
-        # 2. PII Sanitization (Credit card masking)
-        sanitized = self.CARD_PATTERN.sub("[REDACTED_PAYMENT_CARD]", user_message)
+        # 2. Comprehensive Cloud-Based Sensitive Data Protection (DLP)
+        self.inspections_count += 1
+        dlp_result = self.dlp_service.inspect_and_redact(user_message)
 
-        return sanitized
+        if dlp_result.is_sensitive:
+            self.sensitive_findings_count += dlp_result.findings_count
+            for it in dlp_result.info_types_detected:
+                if it not in self.detected_info_types:
+                    self.detected_info_types.append(it)
+
+        return dlp_result.sanitized_text
+
+    def get_dlp_summary(self) -> Dict[str, Any]:
+        """Returns aggregate Cloud DLP protection statistics."""
+        return {
+            "total_inspections": self.inspections_count,
+            "sensitive_detections_count": self.sensitive_findings_count,
+            "detected_info_types": self.detected_info_types,
+            "supported_info_types": self.dlp_service.SUPPORTED_INFOTYPES,
+            "cloud_dlp_operational": self.dlp_service._cloud_available
+        }
 
     async def before_agent_callback(self, agent: Any, context: Any) -> Optional[Any]:
         """ADK lifecycle hook: validates user message before agent execution."""

@@ -12,12 +12,20 @@ from typing import Dict, Any, Optional
 from backend.protocols.a2ui import A2UIMessage
 from backend.agents.coordinator_agent import OutingCoordinatorService
 from backend.config import APP_HOST, APP_PORT
+from backend.telemetry.logging import setup_structured_logging, get_recent_structured_logs
+from backend.telemetry.tracing import OpenTelemetryMiddleware, get_collected_spans
+
+# Initialize Structured JSON Logging with GCP Cloud Logging formatting
+setup_structured_logging()
 
 app = FastAPI(
     title="Cinema Outings Multi-Agent Backend",
-    description="Powered by Google ADK, Gemini, MCP, and A2UI Protocol",
+    description="Powered by Google ADK, Gemini, MCP, OpenTelemetry, and A2UI Protocol",
     version="1.0.0"
 )
+
+# Distributed Tracing: OpenTelemetry W3C trace context propagation
+app.add_middleware(OpenTelemetryMiddleware)
 
 # Enable CORS for Flutter client
 app.add_middleware(
@@ -65,7 +73,7 @@ class CompactRequest(BaseModel):
 
 @app.get("/api/v1/health")
 async def health_check():
-    """Health check endpoint with model routing and security guardrail status."""
+    """Health check endpoint with model routing, security guardrails, and tracing status."""
     return {
         "status": "healthy",
         "service": "cinema-outings-agent-backend",
@@ -75,10 +83,15 @@ async def health_check():
             "BookingAgent",
             "HousekeepingAgent"
         ],
-        "protocols": ["A2UI v1.0", "MCP v1.0"],
+        "protocols": ["A2UI v1.0", "MCP v1.0", "OpenTelemetry W3C Tracing"],
+        "observability": {
+            "structured_logging": "JSON Formatter (GCP Logging Compatible)",
+            "distributed_tracing": "OpenTelemetry SDK v1.42",
+            "dlp_inspection": "Google Cloud Sensitive Data Protection (DLP)"
+        },
         "model_routing": coordinator.routing_config,
         "security_guardrails": [
-            "InputSecurityGuardrailPlugin (Injection & PII Defense)",
+            "InputSecurityGuardrailPlugin (Prompt Injection & Cloud DLP PII Sanitization)",
             "BookingSafetyGuardrailPlugin (Hold Validation & Rate-limiting)",
             "A2UIValidationGuardrailPlugin (Contract Verification)"
         ],
@@ -86,15 +99,36 @@ async def health_check():
             "RecommendationEvaluationPlugin (Negative Constraints / Zero Seen)",
             "ToolSequenceEvaluationPlugin (Transaction State Machine)",
             "LatencyAndCostTelemetryPlugin (Gemini Flash vs Pro vs Flash-Lite)",
-            "ContextCompactionEvaluationPlugin (History Compaction & Token Reducer)"
+            "ContextCompactionEvaluationPlugin (History Compaction & Token Reducer)",
+            "IntentOutcomeEvaluationPlugin (Explicit Intent vs Outcome Verification)"
         ]
     }
 
 
 @app.get("/api/v1/telemetry")
 async def get_telemetry():
-    """Returns runtime latency and cost telemetry across model tiers."""
-    return coordinator.telemetry.get_summary()
+    """Returns runtime latency, cost, DLP sanitization, and intent vs outcome telemetry."""
+    return {
+        "latency_and_cost": coordinator.telemetry.get_summary(),
+        "intent_vs_outcome": coordinator.intent_outcome_evaluator.get_summary(),
+        "cloud_dlp": coordinator.input_guardrail.get_dlp_summary(),
+        "open_telemetry": {
+            "spans_recorded_count": len(get_collected_spans(limit=1000)),
+            "service_name": "cinema-outings-agent"
+        }
+    }
+
+
+@app.get("/api/v1/telemetry/traces")
+async def get_recent_traces(limit: int = 25):
+    """Returns recent OpenTelemetry distributed trace spans."""
+    return {"spans": get_collected_spans(limit=limit)}
+
+
+@app.get("/api/v1/telemetry/logs")
+async def get_recent_logs(limit: int = 50):
+    """Returns recent machine-readable structured JSON logs."""
+    return {"logs": get_recent_structured_logs(limit=limit)}
 
 
 @app.post("/api/v1/agent/chat", response_model=A2UIMessage)

@@ -29,7 +29,8 @@ from backend.state.memory_manager import (
     add_movie_to_favorites,
     add_conversation_turn,
     get_compacted_context,
-    summarize_a2ui_components
+    summarize_a2ui_components,
+    estimate_history_tokens
 )
 
 logger = logging.getLogger(__name__)
@@ -49,8 +50,10 @@ from backend.plugins.evaluation_plugins import (
     RecommendationEvaluationPlugin,
     ToolSequenceEvaluationPlugin,
     LatencyAndCostTelemetryPlugin,
-    ContextCompactionEvaluationPlugin
+    ContextCompactionEvaluationPlugin,
+    IntentOutcomeEvaluationPlugin
 )
+from backend.telemetry.tracing import get_tracer
 
 COORDINATOR_INSTRUCTION = """You are the Outing Coordinator Agent, the primary host of the Cinema Outings assistant.
 You work alongside 3 specialized agents to deliver a seamless cinema experience:
@@ -104,6 +107,8 @@ class OutingCoordinatorService:
         self.tool_evaluator = ToolSequenceEvaluationPlugin()
         self.telemetry = LatencyAndCostTelemetryPlugin()
         self.compaction_evaluator = ContextCompactionEvaluationPlugin()
+        self.intent_outcome_evaluator = IntentOutcomeEvaluationPlugin()
+        self.tracer = get_tracer("coordinator_service")
 
         # Persistent SQLite Database & In-Memory Session Cache
         self.db = db or DatabaseManager()
@@ -454,6 +459,15 @@ class OutingCoordinatorService:
             duration_ms=duration_ms
         )
 
+        # 7. Explicit Intent vs Outcome Evaluation & Logging
+        self.intent_outcome_evaluator.evaluate_intent_outcome(
+            session_id=session_id,
+            intent=route.intent.name,
+            model_tier=route.model_tier.name,
+            response=response,
+            latency_ms=duration_ms
+        )
+
         return response
 
     async def handle_a2ui_action(
@@ -633,6 +647,24 @@ class OutingCoordinatorService:
             agent_name=response.agent,
             model_name=self.routing_config.get("coordinator", DEFAULT_MODEL),
             duration_ms=duration_ms
+        )
+
+        # Explicit Intent vs Outcome Evaluation & Logging
+        action_intent_map = {
+            "SELECT_SHOWTIME": "BOOKING_SEATS",
+            "HOLD_SEATS": "BOOKING_SEATS",
+            "SELECT_SEATS": "BOOKING_SEATS",
+            "CONFIRM_PAYMENT": "BOOKING_CONFIRM",
+            "SEND_CALENDAR_INVITE": "HOUSEKEEPING_CALENDAR",
+            "ADD_FAVORITE": "HOUSEKEEPING_FAVORITE",
+            "VIEW_HISTORY": "HOUSEKEEPING_HISTORY"
+        }
+        self.intent_outcome_evaluator.evaluate_intent_outcome(
+            session_id=session_id,
+            intent=action_intent_map.get(action, "UNKNOWN"),
+            model_tier="FAST_FLASH",
+            response=response,
+            latency_ms=duration_ms
         )
 
         return response
