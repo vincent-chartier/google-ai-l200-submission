@@ -178,9 +178,25 @@ class TicketPassWidget extends StatelessWidget {
                 // Action Buttons
                 if (component.actions.isNotEmpty)
                   ...component.actions.map(
-                    (act) => SizedBox(
+                    (act) => Container(
                       width: double.infinity,
+                      decoration: BoxDecoration(
+                        gradient: CinemaTheme.bluePinkGradient,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: CinemaTheme.hotPink.withOpacity(0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
                       child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          foregroundColor: Colors.white,
+                        ),
                         icon: const Icon(Icons.calendar_today, size: 16),
                         label: Text(act.label),
                         onPressed: () => onAction(act),

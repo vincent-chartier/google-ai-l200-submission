@@ -19,7 +19,7 @@ class CinemaOutingsApp extends StatelessWidget {
       theme: CinemaTheme.darkTheme,
       builder: (context, child) {
         return Scaffold(
-          backgroundColor: const Color(0xFF09080E),
+          backgroundColor: const Color(0xFF060714),
           body: Center(
             child: Container(
               constraints: const BoxConstraints(maxWidth: 440),
@@ -27,15 +27,20 @@ class CinemaOutingsApp extends StatelessWidget {
                 color: CinemaTheme.darkBackground,
                 border: Border.symmetric(
                   vertical: BorderSide(
-                    color: Colors.white.withOpacity(0.08),
+                    color: CinemaTheme.electricBlue.withOpacity(0.25),
                     width: 1,
                   ),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.6),
+                    color: CinemaTheme.electricBlue.withOpacity(0.15),
                     blurRadius: 30,
-                    spreadRadius: 5,
+                    spreadRadius: 2,
+                  ),
+                  BoxShadow(
+                    color: CinemaTheme.hotPink.withOpacity(0.15),
+                    blurRadius: 40,
+                    spreadRadius: 4,
                   ),
                 ],
               ),
@@ -85,8 +90,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
-        backgroundColor: CinemaTheme.cardBackground,
-        indicatorColor: CinemaTheme.goldAccent.withOpacity(0.25),
+        backgroundColor: CinemaTheme.cardBackground.withOpacity(0.95),
+        indicatorColor: CinemaTheme.hotPink.withOpacity(0.22),
         onDestinationSelected: (index) {
           setState(() {
             _currentIndex = index;
@@ -95,12 +100,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.forum_outlined, color: CinemaTheme.textSecondary),
-            selectedIcon: Icon(Icons.forum, color: CinemaTheme.goldAccent),
+            selectedIcon: Icon(Icons.forum, color: CinemaTheme.hotPink),
             label: 'AI Planner',
           ),
           NavigationDestination(
             icon: Icon(Icons.movie_filter_outlined, color: CinemaTheme.textSecondary),
-            selectedIcon: Icon(Icons.movie_filter, color: CinemaTheme.goldAccent),
+            selectedIcon: Icon(Icons.movie_filter, color: CinemaTheme.electricBlue),
             label: 'My Cinema Profile',
           ),
         ],

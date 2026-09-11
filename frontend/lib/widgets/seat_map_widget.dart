@@ -63,13 +63,18 @@ class _SeatMapWidgetState extends State<SeatMapWidget> {
       decoration: BoxDecoration(
         color: CinemaTheme.cardBackground,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: CinemaTheme.goldAccent.withOpacity(0.3)),
+        border: Border.all(color: CinemaTheme.electricBlue.withOpacity(0.35), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
+            color: CinemaTheme.electricBlue.withOpacity(0.12),
             blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
+            offset: const Offset(-2, 2),
+          ),
+          BoxShadow(
+            color: CinemaTheme.hotPink.withOpacity(0.12),
+            blurRadius: 12,
+            offset: const Offset(2, 3),
+          ),
         ],
       ),
       child: Column(
@@ -101,12 +106,20 @@ class _SeatMapWidgetState extends State<SeatMapWidget> {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  CinemaTheme.goldAccent.withOpacity(0.1),
-                  CinemaTheme.goldAccent.withOpacity(0.8),
-                  CinemaTheme.goldAccent.withOpacity(0.1),
+                  CinemaTheme.electricBlue.withOpacity(0.2),
+                  CinemaTheme.neonCyan,
+                  CinemaTheme.hotPink,
+                  CinemaTheme.hotPink.withOpacity(0.2),
                 ],
               ),
               borderRadius: BorderRadius.circular(6),
+              boxShadow: [
+                BoxShadow(
+                  color: CinemaTheme.hotPink.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 6),
@@ -241,21 +254,41 @@ class _SeatMapWidgetState extends State<SeatMapWidget> {
                 ],
               ),
               const Spacer(),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.lock_outline, size: 16),
-                label: const Text('Hold & Pay'),
-                onPressed: _selectedSeats.isEmpty
-                    ? null
-                    : () {
-                        widget.onAction(A2UIAction(
-                          label: 'Hold Seats',
-                          action: 'HOLD_SEATS',
-                          payload: {
-                            'showtime_id': props['showtime_id'] ?? 'SH-DUNE-1930',
-                            'seats': _selectedSeats.toList(),
-                          },
-                        ));
-                      },
+              Container(
+                decoration: BoxDecoration(
+                  gradient: _selectedSeats.isEmpty ? null : CinemaTheme.bluePinkGradient,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: _selectedSeats.isEmpty
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: CinemaTheme.hotPink.withOpacity(0.35),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                ),
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _selectedSeats.isEmpty ? Colors.grey.shade800 : Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: const Icon(Icons.lock_outline, size: 16),
+                  label: const Text('Hold & Pay'),
+                  onPressed: _selectedSeats.isEmpty
+                      ? null
+                      : () {
+                          widget.onAction(A2UIAction(
+                            label: 'Hold Seats',
+                            action: 'HOLD_SEATS',
+                            payload: {
+                              'showtime_id': props['showtime_id'] ?? 'SH-DUNE-1930',
+                              'seats': _selectedSeats.toList(),
+                            },
+                          ));
+                        },
+                ),
               ),
             ],
           ),

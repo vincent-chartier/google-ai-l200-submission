@@ -23,17 +23,25 @@ class MovieCardWidget extends StatelessWidget {
     final showtimes = (props['showtimes'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+      margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: CinemaTheme.cardBackground.withOpacity(0.85),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: CinemaTheme.goldAccent.withOpacity(0.3), width: 1),
+        color: CinemaTheme.cardBackground.withOpacity(0.90),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: CinemaTheme.electricBlue.withOpacity(0.35),
+          width: 1.2,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.35),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: CinemaTheme.electricBlue.withOpacity(0.12),
+            blurRadius: 10,
+            offset: const Offset(-2, 2),
+          ),
+          BoxShadow(
+            color: CinemaTheme.hotPink.withOpacity(0.12),
+            blurRadius: 12,
+            offset: const Offset(2, 3),
           ),
         ],
       ),
@@ -68,33 +76,47 @@ class MovieCardWidget extends StatelessWidget {
               spacing: 8,
               runSpacing: 6,
               children: showtimes.map((st) {
-                return OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: CinemaTheme.goldAccent,
-                    side: const BorderSide(color: CinemaTheme.goldAccent),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                return Container(
+                  decoration: BoxDecoration(
+                    gradient: CinemaTheme.bluePinkGradient,
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  onPressed: () {
-                    onAction(A2UIAction(
-                      label: 'Select $st',
-                      action: 'SELECT_SHOWTIME',
-                      payload: {
-                        'movie_title': title,
-                        'showtime_id': 'SH-DUNE-1930',
-                        'time': st,
+                  padding: const EdgeInsets.all(1.2),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: CinemaTheme.cardBackground,
+                      borderRadius: BorderRadius.circular(6.8),
+                    ),
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: CinemaTheme.hotPink,
+                        side: BorderSide.none,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6.8),
+                        ),
+                      ),
+                      onPressed: () {
+                        onAction(A2UIAction(
+                          label: 'Select $st',
+                          action: 'SELECT_SHOWTIME',
+                          payload: {
+                            'movie_title': title,
+                            'showtime_id': 'SH-DUNE-1930',
+                            'time': st,
+                          },
+                        ));
                       },
-                    ));
-                  },
-                  child: Text(
-                    st,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                      child: Text(
+                        st,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: CinemaTheme.hotPink,
+                        ),
+                      ),
                     ),
                   ),
                 );

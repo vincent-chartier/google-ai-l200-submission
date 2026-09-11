@@ -131,23 +131,37 @@ class _CalendarInviteWidgetState extends State<CalendarInviteWidget> {
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
-                      foregroundColor: Colors.white,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: CinemaTheme.bluePinkGradient,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: CinemaTheme.hotPink.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    icon: const Icon(Icons.add_to_photos, size: 16),
-                    label: const Text('Add to Calendar'),
-                    onPressed: () {
-                      setState(() {
-                        _addedToCalendar = true;
-                      });
-                      final act = widget.component.actions.firstWhere(
-                        (a) => a.action == 'OPEN_EXTERNAL_URL',
-                        orElse: () => A2UIAction(label: 'Add', action: 'OPEN_EXTERNAL_URL', payload: {}),
-                      );
-                      widget.onAction(act);
-                    },
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: const Icon(Icons.add_to_photos, size: 16),
+                      label: const Text('Add to Calendar'),
+                      onPressed: () {
+                        setState(() {
+                          _addedToCalendar = true;
+                        });
+                        final act = widget.component.actions.firstWhere(
+                          (a) => a.action == 'OPEN_EXTERNAL_URL',
+                          orElse: () => A2UIAction(label: 'Add', action: 'OPEN_EXTERNAL_URL', payload: {}),
+                        );
+                        widget.onAction(act);
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),

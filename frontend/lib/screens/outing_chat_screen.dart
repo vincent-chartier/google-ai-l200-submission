@@ -143,10 +143,10 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Background Image with transparency to preserve foreground readability
+          // Background Image with transparency
           Positioned.fill(
             child: Opacity(
-              opacity: 0.18,
+              opacity: 0.16,
               child: Image.asset(
                 'assets/images/pulp_fiction.jpg',
                 fit: BoxFit.cover,
@@ -164,10 +164,20 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
             ),
           ),
 
-          // Gradient tint overlay for high contrast readability
+          // Glowing blue-to-pink ambient gradient overlay
           Positioned.fill(
             child: Container(
-              color: CinemaTheme.darkBackground.withOpacity(0.55),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF080D26).withOpacity(0.88), // Deep Midnight Blue
+                    const Color(0xFF140A28).withOpacity(0.82), // Deep Violet
+                    const Color(0xFF280720).withOpacity(0.88), // Deep Pink glow
+                  ],
+                ),
+              ),
             ),
           ),
 
@@ -190,12 +200,12 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
                         const SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: CinemaTheme.goldAccent),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: CinemaTheme.hotPink),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           '$_activeAgent is planning your outing...',
-                          style: const TextStyle(color: CinemaTheme.textSecondary, fontSize: 12),
+                          style: const TextStyle(color: CinemaTheme.softPink, fontSize: 12),
                         ),
                       ],
                     ),
@@ -229,10 +239,10 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: CinemaTheme.cardBackground,
+        color: CinemaTheme.cardBackground.withOpacity(0.92),
         border: Border(
           bottom: BorderSide(
-            color: Colors.white.withOpacity(0.08),
+            color: CinemaTheme.electricBlue.withOpacity(0.25),
             width: 1,
           ),
         ),
@@ -248,24 +258,44 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
                 hintStyle: const TextStyle(color: CinemaTheme.textSecondary, fontSize: 13),
                 filled: true,
                 fillColor: CinemaTheme.darkBackground,
-                prefixIcon: const Icon(Icons.search, color: CinemaTheme.goldAccent, size: 20),
+                prefixIcon: const Icon(Icons.search, color: CinemaTheme.neonCyan, size: 20),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
+                  borderSide: BorderSide(color: CinemaTheme.electricBlue.withOpacity(0.2)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide(color: CinemaTheme.electricBlue.withOpacity(0.2)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: const BorderSide(color: CinemaTheme.electricBlue, width: 1.5),
                 ),
               ),
               onSubmitted: _handleUserSubmit,
             ),
           ),
           const SizedBox(width: 8),
-          IconButton.filled(
-            style: IconButton.styleFrom(
-              backgroundColor: CinemaTheme.goldAccent,
-              foregroundColor: Colors.black,
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              gradient: CinemaTheme.bluePinkGradient,
+              borderRadius: BorderRadius.circular(21),
+              boxShadow: [
+                BoxShadow(
+                  color: CinemaTheme.hotPink.withOpacity(0.35),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            icon: const Icon(Icons.send_rounded, size: 20),
-            onPressed: () => _handleUserSubmit(_textController.text),
+            child: IconButton(
+              padding: EdgeInsets.zero,
+              icon: const Icon(Icons.send_rounded, size: 18, color: Colors.white),
+              onPressed: () => _handleUserSubmit(_textController.text),
+            ),
           ),
         ],
       ),
@@ -276,7 +306,7 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
     return Container(
       height: 44,
       padding: const EdgeInsets.symmetric(vertical: 4),
-      color: CinemaTheme.darkBackground,
+      color: Colors.transparent,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -285,11 +315,11 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
         itemBuilder: (context, index) {
           final qr = _quickReplies[index];
           return ActionChip(
-            backgroundColor: CinemaTheme.elevatedBackground,
-            side: const BorderSide(color: CinemaTheme.goldAccent, width: 0.8),
+            backgroundColor: CinemaTheme.elevatedBackground.withOpacity(0.85),
+            side: BorderSide(color: CinemaTheme.electricBlue.withOpacity(0.55), width: 1),
             label: Text(
               qr.label,
-              style: const TextStyle(color: CinemaTheme.goldAccent, fontSize: 12),
+              style: const TextStyle(color: CinemaTheme.softPink, fontSize: 12, fontWeight: FontWeight.w600),
             ),
             onPressed: () {
               _handleA2UIAction(A2UIAction(
@@ -309,16 +339,22 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
       alignment: Alignment.centerRight,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         constraints: const BoxConstraints(maxWidth: 300),
         decoration: BoxDecoration(
-          color: CinemaTheme.elevatedBackground,
+          gradient: CinemaTheme.bluePinkGradient,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white12),
+          boxShadow: [
+            BoxShadow(
+              color: CinemaTheme.hotPink.withOpacity(0.25),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Text(
           text,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
+          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
         ),
       ),
     );
@@ -340,12 +376,12 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
             if (!isInitial) ...[
               Row(
                 children: [
-                  const Icon(Icons.smart_toy_outlined, size: 14, color: CinemaTheme.goldAccent),
+                  const Icon(Icons.smart_toy_outlined, size: 14, color: CinemaTheme.neonCyan),
                   const SizedBox(width: 4),
                   Text(
                     entry.sender,
                     style: const TextStyle(
-                      color: CinemaTheme.goldAccent,
+                      color: CinemaTheme.neonCyan,
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                     ),
@@ -361,8 +397,9 @@ class _OutingChatScreenState extends State<OutingChatScreen> {
                 padding: const EdgeInsets.all(12),
                 margin: const EdgeInsets.only(bottom: 6),
                 decoration: BoxDecoration(
-                  color: CinemaTheme.cardBackground,
+                  color: CinemaTheme.cardBackground.withOpacity(0.92),
                   borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: CinemaTheme.electricBlue.withOpacity(0.3)),
                 ),
                 child: Text(
                   entry.text,
